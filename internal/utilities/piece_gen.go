@@ -1,15 +1,23 @@
 package utilities
 
-func GeneratePieceSet(degree int) []Piece {
-	chResult := make(chan Piece)
+import (
+	"fmt"
+)
 
-	channels := []chan Piece{}
-	for ii := 0; ii < degree; ii++ {
-		channels = append(channels, make(chan Piece))
+func GeneratePieceSet(degree int) (PieceSet, error) {
+	if degree > int(MaxPieceDegree) {
+		return nil, fmt.Errorf("degree must not exceed %v", MaxPieceDegree)
 	}
-	channels = append(channels, nil)
+	chResult := make(chan *Piece)
 
-	generator := func(chRecv chan Piece, chEscalate chan Piece) {
+	// channels := []chan *Piece{}
+	channels := make([]chan *Piece, degree+1)
+	for ii := 0; ii < degree; ii++ {
+		channels[ii] = make(chan *Piece)
+	}
+	channels[degree] = nil
+
+	generator := func(chRecv chan *Piece, chEscalate chan *Piece) {
 		uniquePieces := PieceSet{}
 		for piece := range chRecv {
 			for _, nextPiece := range generateNextPieces(piece) {
@@ -36,31 +44,31 @@ func GeneratePieceSet(degree int) []Piece {
 	}
 	baseChannel := channels[0]
 	if baseChannel != nil {
-		baseChannel <- Piece{}
+		baseChannel <- &Piece{}
 		close(baseChannel)
 	} else {
 		close(chResult)
 	}
 
-	pieceSet := []Piece{}
+	pieces := []*Piece{}
 	for piece := range chResult {
-		pieceSet = append(pieceSet, piece)
+		pieces = append(pieces, piece)
 	}
-	return pieceSet
+	return pieces, nil
 }
 
-func generateNextPieces(piece Piece) PieceSet {
-	if len(piece) == 0 {
-		return []Piece{NewPiece([]Point{{X: 0, Y: 0}})} // return base piece
+func generateNextPieces(piece *Piece) PieceSet {
+	if piece.Size() == 0 {
+		newPiece := NewPiece([]Point{{0, 0}})
+		return []*Piece{&newPiece}
 	}
 	pieceSet := PieceSet{}
-	for pt := range piece {
+	for pt := range piece.points {
 		for _, dir := range []Direction{UP, DOWN, LEFT, RIGHT} {
-			newPiece := piece.Copy()
-			newPiece.Add(pt.GetAdjacent(dir))
+			newPiece := piece.Add(pt.GetAdjacent(dir))
 			// Did adding this point change the piece? Add it to the set!
 			if newPiece.Size() != piece.Size() {
-				pieceSet.Add(newPiece.NormalizeToOrigin())
+				pieceSet.Add(&newPiece)
 			}
 		}
 	}

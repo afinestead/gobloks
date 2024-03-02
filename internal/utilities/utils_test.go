@@ -129,6 +129,43 @@ func TestPointAdjacency(t *testing.T) {
 
 }
 
+func TestPointsNormilzation(t *testing.T) {
+	var pts, normalized, expected Set[Point]
+	pts = NewSet[Point]([]Point{
+		{0, 0},
+		{0, -1},
+	})
+	normalized = NormalizeToOrigin(pts)
+	expected = NewSet[Point]([]Point{
+		{0, 0},
+		{0, 1},
+	})
+	for res := range expected {
+		if !normalized.Has(res) {
+			t.Errorf("normalization failed, pt %+v not in %+v", res, normalized)
+		}
+	}
+
+	pts = NewSet[Point]([]Point{
+		{0, 0},
+		{1, 0},
+		{1, -1},
+		{1, -2},
+	})
+	normalized = NormalizeToOrigin(pts)
+	expected = NewSet[Point]([]Point{
+		{0, 2},
+		{1, 2},
+		{1, 1},
+		{1, 0},
+	})
+	for res := range expected {
+		if !normalized.Has(res) {
+			t.Errorf("normalization failed, pt %+v not in %+v", res, normalized)
+		}
+	}
+}
+
 // func TestPointGetAdjacent(t *testing.T) {
 // 	directions := []Direction{UP, DOWN, RIGHT, LEFT}
 

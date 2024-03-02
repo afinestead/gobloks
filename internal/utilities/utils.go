@@ -1,18 +1,13 @@
 package utilities
 
 import (
+	"errors"
 	"math"
 )
-
-type void struct{} //empty structs occupy 0 memory
 
 type Point struct {
 	X int `json:"x"`
 	Y int `json:"y"`
-}
-
-type Owner struct {
-	PID int `json:"pid"`
 }
 
 func (p Point) GetAdjacent(dir Direction) Point {
@@ -27,26 +22,85 @@ func (p Point) GetAdjacent(dir Direction) Point {
 	}
 }
 
-func (p Point) Rotate(degrees int) Point {
+func (pt Point) Translate(x int, y int) Point {
+	return Point{pt.X + x, pt.Y + y}
+}
+
+func Translate(points Set[Point], x int, y int) Set[Point] {
+	translated := Set[Point]{}
+	for pt := range points {
+		translated.Add(pt.Translate(x, y))
+	}
+	return translated
+}
+
+func (pt Point) Rotate(degrees int) Point {
 	rad := float64(degrees) * (math.Pi / 180)
 	cos := float32(math.Cos(rad))
 	sin := float32(math.Sin(rad))
 
-	newX := int((float32(p.X) * cos) - (float32(p.Y) * sin))
-	newY := int((float32(p.Y) * cos) + (float32(p.X) * sin))
+	newX := int((float32(pt.X) * cos) - (float32(pt.Y) * sin))
+	newY := int((float32(pt.Y) * cos) + (float32(pt.X) * sin))
 	return Point{newX, newY}
 }
 
-func (p Point) Reflect(ax Axis) Point {
+// Rotate a set of points
+func Rotate(points Set[Point], degrees int) Set[Point] {
+	rad := float64(degrees) * (math.Pi / 180)
+	cos := float32(math.Cos(rad))
+	sin := float32(math.Sin(rad))
+
+	rotated := Set[Point]{}
+	for pt := range points {
+		newX := int((float32(pt.X) * cos) - (float32(pt.Y) * sin))
+		newY := int((float32(pt.Y) * cos) + (float32(pt.X) * sin))
+		rotated.Add(Point{newX, newY})
+	}
+	return NormalizeToOrigin(rotated)
+}
+
+func (pt Point) Reflect(ax Axis) Point {
 	if ax == X {
-		return Point{p.X, -p.Y}
+		return Point{pt.X, -pt.Y}
 	} else {
-		return Point{-p.X, p.Y}
+		return Point{-pt.X, pt.Y}
 	}
 }
 
-func (p Point) Translate(x int, y int) Point {
-	return Point{p.X + x, p.Y + y}
+// Reflect a set of points across an axis
+func Reflect(points Set[Point], ax Axis) Set[Point] {
+	reflected := Set[Point]{}
+	for pt := range points {
+		reflected.Add(pt.Reflect(ax))
+	}
+	return NormalizeToOrigin(reflected)
+}
+
+func NormalizeToOrigin(points Set[Point]) Set[Point] {
+
+	minCoordinate := func() (int, int, error) {
+		if points.Size() == 0 {
+			return 0, 0, errors.New("cannot compute min on 0 size piece")
+		}
+		minX, minY := math.MaxInt, math.MaxInt
+		for pt := range points {
+			if pt.X < minX {
+				minX = pt.X
+			}
+			if pt.Y < minY {
+				minY = pt.Y
+			}
+		}
+		return minX, minY, nil
+	}
+
+	minX, minY, err := minCoordinate()
+
+	if err != nil {
+		return points // 0 size piece
+	}
+
+	return Translate(points, -minX, -minY)
 }
 
 type Set[T comparable] map[T]void
