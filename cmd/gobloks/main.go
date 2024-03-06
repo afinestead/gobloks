@@ -19,4 +19,13 @@ func main() {
 		fmt.Println(len(pieces))
 	}
 
+	players := []utilities.Owner{0, 1, 2, 3}
+	board, err := utilities.NewBoard(2, players)
+
+	if err != nil {
+		fmt.Printf("%v\n", err)
+	} else {
+		fmt.Println(board.ToString())
+	}
+
 }

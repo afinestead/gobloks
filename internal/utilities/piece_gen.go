@@ -4,24 +4,25 @@ import (
 	"fmt"
 )
 
-func GeneratePieceSet(degree int) (PieceSet, error) {
-	if degree > int(MaxPieceDegree) {
+func GeneratePieceSet(degree uint8) (PieceSet, error) {
+	if degree > MaxPieceDegree {
 		return nil, fmt.Errorf("degree must not exceed %v", MaxPieceDegree)
 	}
-	chResult := make(chan *Piece)
+	chResult := make(chan Piece)
 
-	// channels := []chan *Piece{}
-	channels := make([]chan *Piece, degree+1)
-	for ii := 0; ii < degree; ii++ {
-		channels[ii] = make(chan *Piece)
+	var ii uint8
+	channels := make([]chan Piece, degree+1)
+	for ii = 0; ii < degree; ii++ {
+		channels[ii] = make(chan Piece)
 	}
 	channels[degree] = nil
 
-	generator := func(chRecv chan *Piece, chEscalate chan *Piece) {
+	generator := func(chRecv chan Piece, chEscalate chan Piece) {
 		uniquePieces := PieceSet{}
 		for piece := range chRecv {
-			for _, nextPiece := range generateNextPieces(piece) {
-				if uniquePieces.Add(nextPiece) { // nextPiece is unique and was added to the set
+			for nextPiece := range generateNextPieces(piece) {
+				if !uniquePieces.Has(nextPiece) { // nextPiece is unique
+					uniquePieces.Add(nextPiece) // Add it to the set
 					// escalate it to a higher order piece generator
 					if chEscalate != nil {
 						chEscalate <- nextPiece
@@ -39,36 +40,48 @@ func GeneratePieceSet(degree int) (PieceSet, error) {
 		}
 	}
 
-	for ii := 0; ii < degree; ii++ {
+	for ii = 0; ii < degree; ii++ {
 		go generator(channels[ii], channels[ii+1])
 	}
 	baseChannel := channels[0]
 	if baseChannel != nil {
-		baseChannel <- &Piece{}
+		baseChannel <- Piece{}
 		close(baseChannel)
 	} else {
 		close(chResult)
 	}
 
-	pieces := []*Piece{}
+	pieces := PieceSet{}
 	for piece := range chResult {
-		pieces = append(pieces, piece)
+		pieces.Add(piece)
 	}
 	return pieces, nil
 }
 
-func generateNextPieces(piece *Piece) PieceSet {
-	if piece.Size() == 0 {
-		newPiece := NewPiece([]Point{{0, 0}})
-		return []*Piece{&newPiece}
-	}
+func generateNextPieces(piece Piece) PieceSet {
 	pieceSet := PieceSet{}
-	for pt := range piece.points {
-		for _, dir := range []Direction{UP, DOWN, LEFT, RIGHT} {
-			newPiece := piece.Add(pt.GetAdjacent(dir))
-			// Did adding this point change the piece? Add it to the set!
-			if newPiece.Size() != piece.Size() {
-				pieceSet.Add(&newPiece)
+	if piece.hash == 0 {
+		pieceSet.Add(Piece{1, 1})
+	} else {
+		var shift uint8
+		// shift up and over one row+column, if we can
+		if getRow(piece.repr, MaxPieceDegree-1) == 0 {
+			shift += 1
+		}
+		if getColumn(piece.repr, MaxPieceDegree-1) == 0 {
+			shift += MaxPieceDegree
+		}
+		piece.repr <<= uint64(shift)
+
+		for pt := range piece.ToPoints() {
+			for _, dir := range []Direction{UP, DOWN, LEFT, RIGHT} {
+				adj, err := pt.GetAdjacent(dir)
+				if err != nil {
+					continue
+				}
+				if !piece.hasPoint(adj) {
+					pieceSet.Add(piece.addPoint(adj))
+				}
 			}
 		}
 	}

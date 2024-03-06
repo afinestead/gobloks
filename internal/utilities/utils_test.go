@@ -1,6 +1,7 @@
 package utilities
 
 import (
+	"math"
 	"testing"
 )
 
@@ -166,54 +167,16 @@ func TestPointsNormilzation(t *testing.T) {
 	}
 }
 
-// func TestPointGetAdjacent(t *testing.T) {
-// 	directions := []Direction{UP, DOWN, RIGHT, LEFT}
-
-// 	pt1 := Point{X: BoardX / 2, Y: BoardY / 2}
-// 	expected1 := []*Point{
-// 		{X: (BoardX / 2), Y: (BoardY / 2) + 1},
-// 		{X: (BoardX / 2), Y: (BoardY / 2) - 1},
-// 		{X: (BoardX / 2) + 1, Y: (BoardY / 2)},
-// 		{X: (BoardX / 2) - 1, Y: (BoardY / 2)},
-// 	}
-
-// 	pt2 := Point{X: 0, Y: 0}
-// 	expected2 := []*Point{
-// 		{X: 0, Y: 1},
-// 		nil,
-// 		{X: 1, Y: 0},
-// 		nil,
-// 	}
-
-// 	pt3 := Point{X: (BoardX - 1), Y: (BoardY - 1)}
-// 	expected3 := []*Point{
-// 		nil,
-// 		{X: (BoardX - 1), Y: (BoardY - 1) - 1},
-// 		nil,
-// 		{X: (BoardX - 1) - 1, Y: (BoardY - 1)},
-// 	}
-
-// 	pts := []Point{pt1, pt2, pt3}
-// 	expectations := [][]*Point{
-// 		expected1, expected2, expected3,
-// 	}
-
-// 	for idx := 0; idx < len(pts); idx++ {
-// 		pt := pts[idx]
-// 		exps := expectations[idx]
-
-// 		for i, dir := range directions {
-// 			exp := exps[i]
-// 			adj, err := pt.GetAdjacent(dir)
-// 			if exp != nil && err != nil {
-// 				t.Errorf("Point adjacent (%v) returned error: %s", dir, err)
-// 			}
-// 			if (adj != nil && exp != nil) && (*adj != *exp) {
-// 				t.Errorf("Point adjacent (%v) failed, expected %+v, got %+v", dir, *exp, *adj)
-// 			}
-// 			if (adj == nil) != (exp == nil) {
-// 				t.Errorf("Point adjacent (%v) failed, expected %v, got %v", dir, exp, adj)
-// 			}
-// 		}
-// 	}
-// }
+func TestPointOnCircle(t *testing.T) {
+	for _, radius := range []int{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20} {
+		circle := bresenhamCircle(uint(radius), Point{radius, radius})
+		deg := 0.0
+		for deg < (math.Pi * 2) {
+			testPt := pointOnCircle(deg, circle)
+			if !circle.pixels.Has(testPt) {
+				t.Errorf("error on theta %.2f: circle of radius %v does not contain point %+v", deg, circle.radius, testPt)
+			}
+			deg += 0.01
+		}
+	}
+}

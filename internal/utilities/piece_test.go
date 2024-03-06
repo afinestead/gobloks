@@ -1,220 +1,122 @@
 package utilities
 
 import (
+	"fmt"
 	"testing"
 )
 
-func TestPieceCreation(t *testing.T) {
-	var p Piece
-	var expSize int
-	var expHash uint64
-
-	checkSize := func(exp, res int) {
-		if exp != res {
-			t.Errorf("Unexpected piece size, expected %v, got %v", exp, res)
-		}
-	}
-	checkHash := func(exp, res uint64) {
-		if exp != res {
-			t.Errorf("Unexpected piece hash, expected %v, got %v", exp, res)
+func TestColumnGetter(t *testing.T) {
+	test := func(n uint64, col, exp uint8) {
+		res := getColumn(n, col)
+		if res != exp {
+			t.Errorf("error getting column %v. expected %b, got %b", col, exp, res)
 		}
 	}
 
-	p = NewPiece([]Point{
-		{X: 0, Y: 0},
-	})
-	expSize = 1
-	expHash = 0b1
-	checkSize(expSize, p.Size())
-	checkHash(expHash, p.hash)
-
-	p = NewPiece([]Point{
-		{X: 0, Y: 0},
-		{X: 0, Y: 1},
-	})
-	expSize = 2
-	expHash = 0b11
-	checkSize(expSize, p.Size())
-	checkHash(expHash, p.hash)
-
-	p = NewPiece([]Point{
-		{X: 0, Y: 1},
-		{X: 0, Y: 1},
-	})
-	expSize = 1
-	expHash = 0b1
-	checkSize(expSize, p.Size())
-	checkHash(expHash, p.hash)
-
-	p = NewPiece([]Point{
-		{X: 0, Y: 0},
-		{X: 0, Y: 1},
-		{X: 0, Y: 2},
-	})
-	expSize = 3
-	expHash = 0b111
-	checkSize(expSize, p.Size())
-	checkHash(expHash, p.hash)
+	test(0x0000000000000000, 0, 0x00)
+	test(0x0101010101010101, 0, 0xff)
+	test(0x0101010101010101, 1, 0x00)
+	test(0x0202020202020202, 0, 0x00)
+	test(0x0202020202020202, 1, 0xff)
+	test(0x0404040404040201, 0, 0x01)
+	test(0x0404040403040202, 1, 0b1011)
 }
 
-func TestPieceEquality(t *testing.T) {
-	p1 := NewPiece([]Point{
-		{X: 0, Y: 0},
-	})
-	p2 := NewPiece([]Point{
-		{X: 0, Y: 0},
-	})
-
-	expected := true
-	result := p1.Is(&p2)
-	if result != expected {
-		t.Errorf("Piece equality failed! %+v != %+v", p1, p2)
+func TestRowGetter(t *testing.T) {
+	test := func(n uint64, row, exp uint8) {
+		res := getRow(n, row)
+		if res != exp {
+			t.Errorf("error getting column %v. expected %b, got %b", row, exp, res)
+		}
 	}
 
-	p2 = NewPiece([]Point{
-		{X: 0, Y: 1},
-	})
-	expected = true
-	result = p1.Is(&p2)
-	if result != expected {
-		t.Errorf("Piece equality failed! %+v != %+v", p1, p2)
-	}
-
-	p1 = NewPiece([]Point{
-		{X: 0, Y: 0},
-		{X: 0, Y: 1},
-	})
-	p2 = NewPiece([]Point{
-		{X: 0, Y: 0},
-		{X: 0, Y: 1},
-	})
-	expected = true
-	result = p1.Is(&p2)
-	if result != expected {
-		t.Errorf("Piece equality failed! %+v != %+v", p1, p2)
-	}
-
-	p1 = NewPiece([]Point{
-		{X: 0, Y: 0},
-		{X: 0, Y: -1},
-	})
-	p2 = NewPiece([]Point{
-		{X: 0, Y: 0},
-		{X: 0, Y: 1},
-	})
-	expected = true
-	result = p1.Is(&p2)
-	if result != expected {
-		t.Errorf("Piece equality failed! %+v != %+v", p1, p2)
-	}
-
-	p1 = NewPiece([]Point{
-		{X: 0, Y: 0}, //
-		{X: 0, Y: 1}, //  # #
-		{X: 1, Y: 1}, //  #
-	})
-	p2 = NewPiece([]Point{
-		{X: 1, Y: 1}, //  # #
-		{X: 1, Y: 2}, //    #
-		{X: 0, Y: 2}, //
-	})
-	expected = true
-	result = p1.Is(&p2)
-	if result != expected {
-		t.Errorf("Piece equality failed! %+v != %+v", p1, p2)
-	}
-
-	p1 = NewPiece([]Point{
-		{X: 0, Y: 0}, //
-		{X: 0, Y: 1}, //  # #
-		{X: 1, Y: 1}, //  #
-	})
-	p2 = NewPiece([]Point{
-		{X: 1, Y: 1}, //  #
-		{X: 1, Y: 2}, //  #
-		{X: 1, Y: 0}, //  #
-	})
-	expected = false
-	result = p1.Is(&p2)
-	if result != expected {
-		t.Errorf("Piece equality failed! %+v != %+v", p1, p2)
-	}
+	test(0x0000000000000000, 0, 0x00)
+	test(0x0101010101010101, 0, 0x01)
+	test(0x0101010101010101, 1, 0x01)
+	test(0x0202020202020202, 0, 0x02)
+	test(0x0202020202020202, 1, 0x02)
+	test(0x0404040404040201, 2, 0x04)
+	test(0x0404040403040202, 1, 0x02)
 }
 
-func TestPieceAdd(t *testing.T) {
-	p1 := NewPiece([]Point{
-		{X: 1, Y: 1}, //  #
-		{X: 1, Y: 2}, //  #
-		{X: 1, Y: 0}, //  #
-	})
-	p1 = p1.Add(Point{X: 1, Y: 0})
-	expected := 4
-	if p1.Size() != expected {
-		t.Errorf("Piece add failed! expected size %v, got %v", expected, p1.Size())
+func TestRotator(t *testing.T) {
+	testRot := func(n, exp uint64) {
+		res := rotate64(n)
+		if res != exp {
+			t.Errorf("error rotating %b. expected %b, got %b", n, exp, res)
+		}
 	}
+
+	testRot(0x0101010101010101, 0x00000000000000ff)
+	testRot(0x00000000000000ff, 0x0101010101010101)
 }
 
-// func TestPiecePrint(t *testing.T) {
-// 	p1 := NewPiece([]Point{
-// 		{X: 1, Y: 1}, //  #
-// 		{X: 2, Y: 2}, //  #
-// 		{X: 1, Y: 2}, //  #
-// 		{X: 1, Y: 0}, //  #
-// 	})
-// 	fmt.Println(p1.ToString())
-
-// 	t.Errorf("error")
-// }
-
-func TestPieceCopy(t *testing.T) {
-	p1 := NewPiece([]Point{
-		{X: 1, Y: 1}, //  #
-		{X: 1, Y: 2}, //  #
-		{X: 1, Y: 0}, //  #
-	})
-
-	p2 := p1
-
-	if p1.Size() != p2.Size() {
-		t.Errorf("Piece copy failed! %v != %v", p1.Size(), p2.Size())
+func TestReflector(t *testing.T) {
+	testReflect := func(ax Axis, n, exp uint64) {
+		var result uint64
+		if ax == X {
+			result = reflectX64(n)
+		} else {
+			result = reflectY64(n)
+		}
+		if result != exp {
+			t.Errorf("error reflecting %b. expected %b, got %b", n, exp, result)
+		}
 	}
 
-	p1 = p1.Add(Point{X: 1, Y: 0})
+	testReflect(X, 0x0101010101010101, 0x8080808080808080)
+	testReflect(X, 0x8080808080808080, 0x0101010101010101)
+	testReflect(X, 0x00000000000000ff, 0x00000000000000ff)
+	testReflect(
+		X,
+		0b100000011100000100,
+		0b010000001110000000100000,
+	)
 
-	if p1.Size() == p2.Size() {
-		t.Errorf("Piece copy failed! %v == %v", p1.Size(), p2.Size())
-	}
+	testReflect(Y, 0x0101010101010101, 0x0101010101010101)
+	testReflect(Y, 0xff00000000000000, 0x00000000000000ff)
 }
 
-func TestPieceSetAdd(t *testing.T) {
-	ps := PieceSet{}
-	if ps.Size() != 0 {
-		t.Errorf("PieceSet size failed! %v != %v", ps.Size(), 0)
+func TestStringifier(t *testing.T) {
+	test := func(n uint64, exp string) {
+		res := stringify64(n, '#', ' ')
+		if res != exp {
+			t.Errorf("error stringifying %b\nexpected %v\n got %v\n", n, exp, res)
+		}
 	}
 
-	p1 := NewPiece([]Point{{X: 0, Y: 0}})
-	ps.Add(&p1)
-	if ps.Size() != 1 {
-		t.Errorf("PieceSet size failed! %v != %v", ps.Size(), 1)
+	test(
+		0x01010101010101ff,
+		"\n########\n#       \n#       \n#       \n#       \n#       \n#       \n#       ",
+	)
+
+}
+
+func TestNormalizer(t *testing.T) {
+	test := func(n, exp uint64) {
+		res := normalize64(n)
+		fmt.Printf("%b\n%b\n", n, res)
+		if res != exp {
+			t.Errorf("error normalizing %b. expected %b, got %b", n, exp, res)
+		}
 	}
 
-	// Try adding same piece again...
-	ps.Add(&p1)
-	if ps.Size() != 1 {
-		t.Errorf("PieceSet size failed! %v != %v", ps.Size(), 1)
+	test(
+		0b1000000111000001000000000000000000000000000000000000000000,
+		0b0000000000000000000000000000000000000000100000011100000100,
+	)
+}
+
+func TestPointTo64(t *testing.T) {
+	test := func(p PieceCoord, exp uint64) {
+		res := pointTo64(p)
+		if res != exp {
+			t.Errorf("pointTo64 error %+v. expected %b, got %b", p, exp, res)
+		}
 	}
 
-	// and as a copy...
-	p1Cpy := p1.Copy()
-	ps.Add(&p1Cpy)
-	if ps.Size() != 1 {
-		t.Errorf("PieceSet size failed! %v != %v", ps.Size(), 1)
-	}
-
-	// And now a new piece
-	p2 := NewPiece([]Point{{X: 0, Y: 0}, {X: 0, Y: 1}})
-	ps.Add(&p2)
-	if ps.Size() != 2 {
-		t.Errorf("PieceSet size failed! %v != %v", ps.Size(), 2)
-	}
+	test(PieceCoord{0, 0}, 1)
+	test(PieceCoord{1, 0}, 0b10)
+	test(PieceCoord{0, 1}, 0x100)
+	test(PieceCoord{7, 7}, 0x8000000000000000)
 }

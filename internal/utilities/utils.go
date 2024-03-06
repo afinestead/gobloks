@@ -103,45 +103,24 @@ func NormalizeToOrigin(points Set[Point]) Set[Point] {
 	return Translate(points, -minX, -minY)
 }
 
-type Set[T comparable] map[T]void
-
-func NewSet[T comparable](items []T) Set[T] {
-	s := make(Set[T])
-	for _, item := range items {
-		s.Add(item)
-	}
-	return s
+func degToRad(degrees float64) float64 {
+	return degrees * math.Pi / 180
 }
 
-func (s Set[T]) Has(v T) bool {
-	_, ok := s[v]
-	return ok
-}
-
-func (s Set[T]) Add(v T) {
-	s[v] = void{}
-}
-
-func (s Set[T]) Remove(v T) {
-	delete(s, v)
-}
-
-func (s Set[T]) Clear() {
-	s = make(map[T]void)
-}
-
-func (s Set[T]) Size() int {
-	return len(s)
-}
-
-func (s1 Set[T]) Is(s2 Set[T]) bool {
-	if s1.Size() != s2.Size() {
-		return false
-	}
-	for elem := range s1 {
-		if !s2.Has(elem) {
-			return false
-		}
-	}
-	return true
-}
+// {
+// 	int x = 0;
+// 	int y = radius ;
+// 	int h = 1 – radius ;
+// 	CirclePoints(x, y, value);
+// 	while (y > x) {
+// 	if (h < 0) { /* Select E */
+// 		h = h + 2 * x + 3;
+// 	}
+// 	else { /* Select SE */
+// 		h = h + 2 * ( x – y ) + 5;
+// 		y = y – 1;
+// 	}
+// 	x = x + 1;
+// 	CirclePoints(x, y);
+// 	}
+// 	}

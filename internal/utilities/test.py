@@ -79,41 +79,117 @@ def rotate90AndNormalize2(num):
   return out >> (lsx+lsy)
 
 
-as_int = to_int(matrix)
-print(as_int)
-# # assert(as_int == 1)
-# # print(bin(as_int))
-# # print(from_int(as_int))
-# # assert(from_int(as_int) == matrix)
-# pretty_print(matrix)
-pretty_print(from_int(as_int))
+# as_int = to_int(matrix)
+# print(as_int)
+# # # assert(as_int == 1)
+# # # print(bin(as_int))
+# # # print(from_int(as_int))
+# # # assert(from_int(as_int) == matrix)
+# # pretty_print(matrix)
+# pretty_print(from_int(as_int))
 
-# # print(bin(res))
-# res = rotate90AndNormalize(as_int)
+# # # print(bin(res))
+# # res = rotate90AndNormalize(as_int)
+# # pretty_print(from_int(res))
+# # res2 = rotate90AndNormalize(res)
+# # pretty_print(from_int(res2))
+# # res3 = rotate90AndNormalize(res2)
+# # pretty_print(from_int(res3))
+# # res4 = rotate90AndNormalize(res3)
+# # pretty_print(from_int(res4))
+
+# res = rotate90AndNormalize2(as_int)
+# print(bin(res))
 # pretty_print(from_int(res))
-# res2 = rotate90AndNormalize(res)
+# res2 = rotate90AndNormalize2(res)
+# print(bin(res2))
 # pretty_print(from_int(res2))
-# res3 = rotate90AndNormalize(res2)
+# res3 = rotate90AndNormalize2(res2)
+# print(bin(res3))
 # pretty_print(from_int(res3))
-# res4 = rotate90AndNormalize(res3)
+# res4 = rotate90AndNormalize2(res3)
+# print(bin(res4))
 # pretty_print(from_int(res4))
-
-res = rotate90AndNormalize2(as_int)
-print(bin(res))
-pretty_print(from_int(res))
-res2 = rotate90AndNormalize2(res)
-print(bin(res2))
-pretty_print(from_int(res2))
-res3 = rotate90AndNormalize2(res2)
-print(bin(res3))
-pretty_print(from_int(res3))
-res4 = rotate90AndNormalize2(res3)
-print(bin(res4))
-pretty_print(from_int(res4))
-
 
 
 # for ii in range(2**64):
 #   print(ii)
 #   if to_col(col_mask*ii) == 0xff:
 #     assert(hex(ii))
+
+import matplotlib.pyplot as plt
+points = [
+  (10, 20),
+  (0, 11),
+  (8, 20),
+  (20, 7),
+  (14, 1),
+  (11, 20),
+  (0, 9),
+  (14, 19),
+  (6, 19),
+  (18, 16),
+  (3, 17),
+  (12, 20),
+  (0, 13),
+  (0, 12),
+  (11, 0),
+  (9, 0),
+  (6, 1),
+  (19, 6),
+  (4, 2),
+  (20, 10),
+  (8, 0),
+  (20, 8),
+  (20, 9),
+  (7, 20),
+  (1, 6),
+  (15, 19),
+  (2, 16),
+  (3, 3),
+  (1, 15),
+  (17, 3),
+  (0, 10),
+  (19, 15),
+  (19, 5),
+  (1, 5),
+  (2, 4),
+  (13, 0),
+  (5, 19),
+  (9, 20),
+  (20, 11),
+  (0, 7),
+  (4, 18),
+  (16, 2),
+  (18, 4),
+  (17, 17),
+  (20, 12),
+  (0, 8),
+  (13, 20),
+  (15, 1),
+  (10, 0),
+  (12, 0),
+  (7, 0),
+  (19, 14),
+  (1, 14),
+  (5, 1),
+  (20, 13),
+  (16, 18),
+]
+
+x = [pt[0] for pt in points]
+y = [pt[1] for pt in points]
+
+# circle.center.X + int(circle.radius)*int(math.Cos(theta)),
+# circle.center.Y + int(circle.radius)*int(math.Sin(theta)),
+# theta = math.pi / 4
+# # theta = 
+# pt = (
+#   int(10*math.cos(theta)),
+#   int(10*math.sin(theta)),
+# )
+
+# print(pt)
+
+plt.scatter(x, y)
+plt.show()

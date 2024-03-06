@@ -1,78 +1,162 @@
 package utilities
 
-// import "errors"
+import (
+	"errors"
+	"fmt"
+	"math"
+	"strings"
+)
 
-// type Board struct {
-// 	layout [BoardX][BoardY]Owner
-// }
+// TODO: dynamic board size
+type Board struct {
+	layout     [][]Owner
+	circle     *Circle
+	MaxX, MaxY uint
+}
 
-// func (b *Board) inbounds(square Point) bool {
-// 	return square.X >= 0 && square.X < BoardX && square.Y >= 0 && square.Y < BoardY
-// }
+func NewBoard(radius uint, players []Owner) (*Board, error) {
+	diameter := (radius * 2) + 1
+	numPlayers := len(players)
+	if numPlayers == 0 {
+		return nil, errors.New("0 length players slice")
+	}
 
-// func (b *Board) occupy(square Point, owner Owner) (bool, error) {
-// 	if !b.vacant(square) {
-// 		return false, errors.New("square is occupied")
-// 	}
-// 	b.layout[square.X][square.Y] = owner
-// 	return true, nil
-// }
+	if diameter < radius {
+		// overflow
+		return nil, errors.New("radius too large")
+	}
+	board := Board{
+		layout: make([][]Owner, diameter),
+		MaxX:   diameter,
+		MaxY:   diameter,
+	}
+	for i := range board.layout {
+		board.layout[i] = make([]Owner, diameter)
+		for j := range board.layout[i] {
+			board.layout[i][j] = RESERVED
+		}
+	}
 
-// func (b *Board) vacate(square Point) {
-// 	b.layout[square.X][square.Y] = UNOWNED
-// }
+	circle := bresenhamCircle(radius, Point{int(radius), int(radius)})
+	board.circle = circle
 
-// func (b *Board) owner(square Point) Owner {
-// 	return b.layout[square.X][square.Y]
-// }
+	area := 0
+	// clear out the playable region
+	for pt := range circle.pixels {
+		rowSize := int(math.Abs(float64(circle.center.X - pt.X)))
+		// fmt.Println(rowSize, pt)
+		area += rowSize
+		var offset int
+		if pt.X < circle.center.X {
+			offset = pt.X
+		} else {
+			offset = circle.center.X
+		}
 
-// func (b *Board) vacant(square Point) bool {
-// 	return b.owner(square) == UNOWNED
-// }
+		for i := 0; i <= rowSize; i++ {
+			board.layout[pt.Y][offset+i] = VACANT
+		}
+	}
 
-// func (b *Board) occupiedByPlayer(square Point, owner Owner) bool {
-// 	return b.owner(square) == owner
-// }
+	// area -= int(circle.circumference())
 
-// func (b *Board) validPlacement(origin Point, p Piece, owner Owner) bool {
-// 	return true
-// }
+	fmt.Println(area)
 
-// // func (b *Board) hasSelfSide(pt Point, owner Owner) bool {
+	angleDelta := (2 * math.Pi) / float64(numPlayers)
+	for ii, owner := range players {
+		pt := circle.pointOnCircle(angleDelta * float64(ii))
+		err := board.occupy(pt, owner)
+		if err != nil {
+			return nil, fmt.Errorf("unable to occupy origin pt %+v for owner %v", pt, owner)
+		}
+	}
 
-// // }
+	return &board, nil
+}
 
-// func (b *Board) hasCorner(pt Point, owner Owner) bool {
-// 	if pt.X == 0 && pt.Y == 0 && b.vacant(pt) {
-// 		// 0 0 is always a valid corner, if it is unoccupied
-// 		return true
-// 	}
-// 	ul := pt.GetAdjacent(UP).GetAdjacent(LEFT)
-// 	ur := pt.GetAdjacent(UP).GetAdjacent(RIGHT)
-// 	dl := pt.GetAdjacent(DOWN).GetAdjacent(LEFT)
-// 	dr := pt.GetAdjacent(DOWN).GetAdjacent(RIGHT)
+func (b *Board) ToString() string {
+	var s string
+	var ii, jj uint
+	s += "-" + strings.Repeat("---", int(b.MaxX)) + "-"
+	for ii = 0; ii < b.MaxX; ii++ {
+		s += "\n|"
+		for jj = 0; jj < b.MaxY; jj++ {
+			s += " " + b.layout[jj][ii].ToString() + " "
+		}
+		s += "|"
+	}
+	s += "\n-" + strings.Repeat("---", int(b.MaxX)) + "-"
+	return s
+}
 
-// 	return ((b.inbounds(ul) && b.occupiedByPlayer(ul, owner)) ||
-// 		(b.inbounds(ur) && b.occupiedByPlayer(ur, owner)) ||
-// 		(b.inbounds(dl) && b.occupiedByPlayer(dl, owner)) ||
-// 		(b.inbounds(dr) && b.occupiedByPlayer(dr, owner)))
-// }
+func (b *Board) inbounds(square Point) bool {
+	return square.X >= 0 && square.X < int(b.MaxX) && square.Y >= 0 && square.Y < int(b.MaxY)
+}
 
-// func (b *Board) Place(origin Point, p Piece, owner Owner) (bool, error) {
-// 	valid := b.validPlacement(origin, p, owner)
-// 	if !valid {
-// 		return false, errors.New("invalid placement")
-// 	}
-// 	for pt := range p.points {
-// 		abs_pt := pt.Translate(pt.X, pt.Y)
-// 		ok, err := b.occupy(abs_pt, owner)
-// 		if !ok {
-// 			for clearPt := range p.points {
-// 				b.vacate(clearPt.Translate(clearPt.X, clearPt.Y))
-// 			}
-// 			return false, err
-// 		}
-// 	}
-// 	return true, nil
+func (b *Board) occupy(square Point, owner Owner) error {
+	if !b.vacant(square) {
+		return errors.New("square is occupied")
+	}
+	b.layout[square.X][square.Y] = owner
+	return nil
+}
 
-// }
+func (b *Board) vacate(square Point) {
+	b.layout[square.X][square.Y] = VACANT
+}
+
+func (b *Board) owner(square Point) Owner {
+	return b.layout[square.X][square.Y]
+}
+
+func (b *Board) vacant(square Point) bool {
+	return b.owner(square) == VACANT
+}
+
+func (b *Board) occupiedByPlayer(square Point, owner Owner) bool {
+	return b.owner(square) == owner
+}
+
+func (b *Board) validPlacement(origin Point, p Piece, owner Owner) bool {
+	return true
+}
+
+func (b *Board) hasSelfSide(pt Point, owner Owner) bool {
+	return true
+}
+
+func (b *Board) hasCorner(pt Point, owner Owner) bool {
+	if pt.X == 0 && pt.Y == 0 && b.vacant(pt) {
+		// 0 0 is always a valid corner, if it is unoccupied
+		return true
+	}
+	ul := pt.GetAdjacent(UP).GetAdjacent(LEFT)
+	ur := pt.GetAdjacent(UP).GetAdjacent(RIGHT)
+	dl := pt.GetAdjacent(DOWN).GetAdjacent(LEFT)
+	dr := pt.GetAdjacent(DOWN).GetAdjacent(RIGHT)
+
+	return ((b.inbounds(ul) && b.occupiedByPlayer(ul, owner)) ||
+		(b.inbounds(ur) && b.occupiedByPlayer(ur, owner)) ||
+		(b.inbounds(dl) && b.occupiedByPlayer(dl, owner)) ||
+		(b.inbounds(dr) && b.occupiedByPlayer(dr, owner)))
+}
+
+func (b *Board) Place(origin Point, p Piece, owner Owner) (bool, error) {
+	valid := b.validPlacement(origin, p, owner)
+	if !valid {
+		return false, errors.New("invalid placement")
+	}
+	pieceCoords := p.ToPoints()
+	for pt := range pieceCoords {
+		abs_pt := origin.Translate(int(pt.x), int(pt.y))
+		err := b.occupy(abs_pt, owner)
+		if err != nil {
+			for clearPt := range pieceCoords {
+				b.vacate(origin.Translate(int(clearPt.x), int(clearPt.y)))
+			}
+			return false, err
+		}
+	}
+	return true, nil
+
+}
