@@ -4,9 +4,9 @@ import (
 	"fmt"
 )
 
-func GeneratePieceSet(degree uint8) (PieceSet, error) {
+func GeneratePieceSet(degree uint8) (PieceSet, uint, error) {
 	if degree > MaxPieceDegree {
-		return nil, fmt.Errorf("degree must not exceed %v", MaxPieceDegree)
+		return nil, 0, fmt.Errorf("degree must not exceed %v", MaxPieceDegree)
 	}
 	chResult := make(chan Piece)
 
@@ -51,11 +51,13 @@ func GeneratePieceSet(degree uint8) (PieceSet, error) {
 		close(chResult)
 	}
 
+	var pix uint
 	pieces := PieceSet{}
 	for piece := range chResult {
 		pieces.Add(piece)
+		pix += uint(piece.Size())
 	}
-	return pieces, nil
+	return pieces, pix, nil
 }
 
 func generateNextPieces(piece Piece) PieceSet {

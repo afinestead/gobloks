@@ -14,12 +14,18 @@ type Board struct {
 	MaxX, MaxY uint
 }
 
-func NewBoard(radius uint, players []Owner) (*Board, error) {
-	diameter := (radius * 2) + 1
-	numPlayers := len(players)
+func NewBoard(players []Owner, pixelsPerPlayer uint, tighteningFactor float64) (*Board, error) {
+
+	numPlayers := uint(len(players))
 	if numPlayers == 0 {
 		return nil, errors.New("0 length players slice")
 	}
+
+	maxOccupiedPixels := numPlayers * pixelsPerPlayer
+	// maxOccupancy ~= tighteningFactor * pi * r * r
+	radius := uint(math.Sqrt(float64(maxOccupiedPixels) / tighteningFactor / math.Pi))
+
+	diameter := (radius * 2) + 1
 
 	if diameter < radius {
 		// overflow
@@ -40,27 +46,22 @@ func NewBoard(radius uint, players []Owner) (*Board, error) {
 	circle := bresenhamCircle(radius, Point{int(radius), int(radius)})
 	board.circle = circle
 
-	area := 0
 	// clear out the playable region
 	for pt := range circle.pixels {
-		rowSize := int(math.Abs(float64(circle.center.X - pt.X)))
-		// fmt.Println(rowSize, pt)
-		area += rowSize
+		rowSize := circle.center.X - pt.X
 		var offset int
-		if pt.X < circle.center.X {
-			offset = pt.X
-		} else {
+		if rowSize < 0 {
+			rowSize = 1 - rowSize
 			offset = circle.center.X
+		} else {
+			offset = pt.X
+
 		}
 
-		for i := 0; i <= rowSize; i++ {
+		for i := 0; i < rowSize; i++ {
 			board.layout[pt.Y][offset+i] = VACANT
 		}
 	}
-
-	// area -= int(circle.circumference())
-
-	fmt.Println(area)
 
 	angleDelta := (2 * math.Pi) / float64(numPlayers)
 	for ii, owner := range players {

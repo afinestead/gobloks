@@ -1,6 +1,10 @@
 package utilities
 
-import "math"
+import (
+	"cmp"
+	"math"
+	"slices"
+)
 
 type Circle struct {
 	pixels Set[Point]
@@ -27,12 +31,13 @@ func bresenhamCircle(r uint, c Point) *Circle {
 	}
 
 	addOctants(x, y)
+
 	for y > x {
 		if h >= 0 {
-			h += 2*(x-y) + 5 // select SE
+			h += 2*(x-y) + 5
 			y--
 		} else {
-			h += 2*x + 3 // Select E
+			h += 2*x + 3
 		}
 		x++
 		addOctants(x, y)
@@ -63,5 +68,30 @@ func (circle *Circle) circumference() uint {
 }
 
 func (circle *Circle) area() uint {
-	return 0
+	// compute at creation? it's just called once...
+	var area uint
+
+	var points []Point
+	for pt := range circle.pixels {
+		points = append(points, pt)
+	}
+	slices.SortFunc(
+		points,
+		func(p1, p2 Point) int {
+			if n := cmp.Compare(p1.Y, p2.Y); n != 0 {
+				return n
+			}
+			return cmp.Compare(p1.X, p2.X)
+		},
+	)
+	minYPt, maxYPt := points[0], points[0]
+	for _, pt := range points {
+		if pt.Y != minYPt.Y {
+			area += uint(1 + (maxYPt.X - minYPt.X))
+			minYPt = pt
+		}
+		maxYPt = pt
+	}
+	area += uint(1 + (maxYPt.X - minYPt.X))
+	return area
 }
