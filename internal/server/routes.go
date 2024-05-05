@@ -26,8 +26,6 @@ func CreateGame(c *gin.Context) {
 }
 
 func JoinGame(c *gin.Context) {
-	fmt.Println("joining")
-
 	gid, ok := c.GetQuery("game")
 	if !ok {
 		c.AbortWithStatusJSON(http.StatusNotFound, "no game provided")
