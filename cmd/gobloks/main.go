@@ -20,8 +20,9 @@ func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.GetHeader("access_token")
 		_, err := authorization.VerifyAccessToken(token)
+
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"message": "token invalid"})
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "token invalid"})
 			return
 		}
 		c.Next()
