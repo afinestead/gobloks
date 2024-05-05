@@ -4,7 +4,10 @@ import (
 	"gobloks/internal/authorization"
 	"gobloks/internal/manager"
 	"gobloks/internal/server"
+	"log"
 	"net/http"
+	"os"
+	"reflect"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,9 +21,16 @@ func ApiMiddleware(m *manager.GameManager) gin.HandlerFunc {
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// go can't compare function pointers??
+		if reflect.ValueOf(c.Handler()).Pointer() == reflect.ValueOf(server.CreateGame).Pointer() ||
+			reflect.ValueOf(c.Handler()).Pointer() == reflect.ValueOf(server.JoinGame).Pointer() {
+			// endpoints don't need authentication
+			c.Next()
+			return
+		}
+
 		token := c.GetHeader("access_token")
 		_, err := authorization.VerifyAccessToken(token)
-
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "token invalid"})
 			return
@@ -31,6 +41,24 @@ func AuthMiddleware() gin.HandlerFunc {
 
 func main() {
 
+	if _, err := os.ReadFile("key.priv"); err != nil {
+		log.Println("Writing new key into file...")
+		file, err := os.OpenFile("key.priv", os.O_WRONLY|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer file.Close()
+
+		newKey, err := authorization.GenerateKey()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		_, err = file.WriteString(newKey)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 	globalGameManager := manager.InitGameManager()
 
 	router := gin.Default()
@@ -40,6 +68,7 @@ func main() {
 	)
 
 	router.POST("/create", server.CreateGame)
+	router.POST("/join", server.JoinGame)
 	router.Run("localhost:8888")
 
 	// var pieceDegree uint8 = 5

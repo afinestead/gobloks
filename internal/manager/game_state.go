@@ -41,6 +41,8 @@ func InitGameState(config types.GameConfig) *GameState {
 		fmt.Println(err)
 	}
 
+	fmt.Println(config)
+
 	playerStates := make([]PlayerState, config.Players)
 	pids := make([]types.PlayerID, config.Players)
 

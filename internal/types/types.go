@@ -9,14 +9,14 @@ type PlayerID uint16
 type GameID string
 
 type GameConfig struct {
-	Players     uint    `json:"players"`
-	BlockDegree uint8   `json:"degree"`
+	Players     uint    `json:"players" binding:"required,gte=1,lte=65536"`
+	BlockDegree uint8   `json:"degree" binding:"required,gte=1,lte=8"`
 	Density     float64 `json:"density"`
 }
 
-type Coordinate struct {
-	X int `json:"x"`
-	Y int `json:"y"`
+type PlayerConfig struct {
+	Name  string `json:"name" binding:"required,max=32"`
+	Color uint   `json:"color" binding:"required,gt=0,lte=16777215"`
 }
 
 // from enum import auto, Enum, IntEnum

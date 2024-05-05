@@ -6,7 +6,6 @@ import (
 	"gobloks/internal/manager"
 	"gobloks/internal/types"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,7 +15,7 @@ func CreateGame(c *gin.Context) {
 
 	err := c.BindJSON(&config)
 	if err != nil {
-		fmt.Println(err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, err)
 		return
 	}
 
@@ -29,42 +28,39 @@ func CreateGame(c *gin.Context) {
 func JoinGame(c *gin.Context) {
 	fmt.Println("joining")
 
-	gid, ok := c.GetQuery("gid")
+	gid, ok := c.GetQuery("game")
 	if !ok {
-		fmt.Println("no gid")
+		c.AbortWithStatusJSON(http.StatusNotFound, "no game provided")
+		return
+	}
+
+	var config types.PlayerConfig
+	err := c.BindJSON(&config)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, err)
 		return
 	}
 
 	gm := c.MustGet("manager").(*manager.GameManager)
 	gs, err := gm.FindGame(types.GameID(gid))
 	if err != nil {
-		fmt.Println("no game")
+		c.AbortWithStatusJSON(http.StatusNotFound, fmt.Sprintf("no game %s", gid))
 		return
 	}
 
-	name, ok := c.GetQuery("name")
-	if !ok {
-		fmt.Println("no name")
-		return
-	}
-	colorStr, ok := c.GetQuery("color")
-	if !ok {
-		fmt.Println("no color")
-		return
-	}
-	colorInt, err := strconv.Atoi(colorStr)
-	if err != nil || uint(colorInt) > 0xffffff {
-		fmt.Println("invalid color")
-		return
-	}
-
-	pid, err := gs.ConnectPlayer(name, uint(colorInt))
+	pid, err := gs.ConnectPlayer(config.Name, config.Color)
 	if err != nil {
-		fmt.Println(err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, err)
 		return
 	}
 
-	authorization.CreateAccessToken(pid, types.GameID(gid), 3600)
+	token, err := authorization.CreateAccessToken(pid, types.GameID(gid), 3600)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, err)
+		return
+	}
+
+	c.Writer.Header().Set("access_token", token)
 }
 
 func PlacePiece(c *gin.Context) {
