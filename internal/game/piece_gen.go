@@ -1,12 +1,13 @@
-package utilities
+package game
 
 import (
 	"fmt"
+	"gobloks/internal/types"
 )
 
 func GeneratePieceSet(degree uint8) (PieceSet, uint, error) {
-	if degree > MaxPieceDegree {
-		return nil, 0, fmt.Errorf("degree must not exceed %v", MaxPieceDegree)
+	if degree > types.MaxPieceDegree {
+		return nil, 0, fmt.Errorf("degree must not exceed %v", types.MaxPieceDegree)
 	}
 	chResult := make(chan Piece)
 
@@ -67,17 +68,17 @@ func generateNextPieces(piece Piece) PieceSet {
 	} else {
 		var shift uint8
 		// shift up and over one row+column, if we can
-		if getRow(piece.repr, MaxPieceDegree-1) == 0 {
+		if getRow(piece.repr, types.MaxPieceDegree-1) == 0 {
 			shift += 1
 		}
-		if getColumn(piece.repr, MaxPieceDegree-1) == 0 {
-			shift += MaxPieceDegree
+		if getColumn(piece.repr, types.MaxPieceDegree-1) == 0 {
+			shift += types.MaxPieceDegree
 		}
 		piece.repr <<= uint64(shift)
 
 		for pt := range piece.ToPoints() {
-			for _, dir := range []Direction{UP, DOWN, LEFT, RIGHT} {
-				adj, err := pt.GetAdjacent(dir)
+			for _, dir := range []types.Direction{types.UP, types.DOWN, types.LEFT, types.RIGHT} {
+				adj, err := pt.getAdjacent(dir)
 				if err != nil {
 					continue
 				}

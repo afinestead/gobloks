@@ -2,32 +2,33 @@ package utilities
 
 import (
 	"cmp"
+	"gobloks/internal/types"
 	"math"
 	"slices"
 )
 
 type Circle struct {
-	pixels Set[Point]
-	radius uint
-	center Point
+	Circumference Set[types.Point]
+	Radius        uint
+	Center        types.Point
 }
 
-func bresenhamCircle(r uint, c Point) *Circle {
+func BresenhamCircle(r uint, c types.Point) *Circle {
 	x := 0
 	y := int(r)
 	h := 1 - int(r)
 
-	circlePix := Set[Point]{}
+	circlePix := Set[types.Point]{}
 
 	addOctants := func(px, py int) {
-		circlePix.Add(Point{c.X + px, c.Y + py})
-		circlePix.Add(Point{c.X - px, c.Y + py})
-		circlePix.Add(Point{c.X + px, c.Y - py})
-		circlePix.Add(Point{c.X - px, c.Y - py})
-		circlePix.Add(Point{c.X + py, c.Y + px})
-		circlePix.Add(Point{c.X - py, c.Y + px})
-		circlePix.Add(Point{c.X + py, c.Y - px})
-		circlePix.Add(Point{c.X - py, c.Y - px})
+		circlePix.Add(types.Point{X: c.X + px, Y: c.Y + py})
+		circlePix.Add(types.Point{X: c.X - px, Y: c.Y + py})
+		circlePix.Add(types.Point{X: c.X + px, Y: c.Y - py})
+		circlePix.Add(types.Point{X: c.X - px, Y: c.Y - py})
+		circlePix.Add(types.Point{X: c.X + py, Y: c.Y + px})
+		circlePix.Add(types.Point{X: c.X - py, Y: c.Y + px})
+		circlePix.Add(types.Point{X: c.X + py, Y: c.Y - px})
+		circlePix.Add(types.Point{X: c.X - py, Y: c.Y - px})
 	}
 
 	addOctants(x, y)
@@ -45,17 +46,17 @@ func bresenhamCircle(r uint, c Point) *Circle {
 	return &Circle{circlePix, r, c}
 }
 
-func (circle *Circle) pointOnCircle(theta float64) Point {
-	floatX := float64(circle.center.X) + float64(circle.radius)*math.Cos(theta)
-	floatY := float64(circle.center.Y) + float64(circle.radius)*math.Sin(theta)
+func (circle *Circle) PointOnCircle(theta float64) types.Point {
+	floatX := float64(circle.Center.X) + float64(circle.Radius)*math.Cos(theta)
+	floatY := float64(circle.Center.Y) + float64(circle.Radius)*math.Sin(theta)
 
-	point := Point{int(math.Round(floatX)), int(math.Round(floatY))}
+	point := types.Point{X: int(math.Round(floatX)), Y: int(math.Round(floatY))}
 	// search the area around the point to snap to the circle
 	for {
 		for _, dx := range []int{0, -1, 2} {
 			for _, dy := range []int{0, -1, 2} {
-				point = Point{point.X + dx, point.Y + dy}
-				if circle.pixels.Has(point) {
+				point = types.Point{X: point.X + dx, Y: point.Y + dy}
+				if circle.Circumference.Has(point) {
 					return point
 				}
 			}
@@ -64,20 +65,20 @@ func (circle *Circle) pointOnCircle(theta float64) Point {
 }
 
 func (circle *Circle) circumference() uint {
-	return uint(len(circle.pixels))
+	return uint(len(circle.Circumference))
 }
 
 func (circle *Circle) area() uint {
 	// compute at creation? it's just called once...
 	var area uint
 
-	var points []Point
-	for pt := range circle.pixels {
+	var points []types.Point
+	for pt := range circle.Circumference {
 		points = append(points, pt)
 	}
 	slices.SortFunc(
 		points,
-		func(p1, p2 Point) int {
+		func(p1, p2 types.Point) int {
 			if n := cmp.Compare(p1.Y, p2.Y); n != 0 {
 				return n
 			}

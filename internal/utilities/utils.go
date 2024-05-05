@@ -2,81 +2,44 @@ package utilities
 
 import (
 	"errors"
+	"gobloks/internal/types"
 	"math"
 )
 
-type Point struct {
-	X int `json:"x"`
-	Y int `json:"y"`
-}
-
-func (p Point) GetAdjacent(dir Direction) Point {
-	if dir == UP {
-		return Point{p.X, p.Y + 1}
-	} else if dir == DOWN {
-		return Point{p.X, p.Y - 1}
-	} else if dir == LEFT {
-		return Point{p.X - 1, p.Y}
-	} else { // dir == RIGHT
-		return Point{p.X + 1, p.Y}
-	}
-}
-
-func (pt Point) Translate(x int, y int) Point {
-	return Point{pt.X + x, pt.Y + y}
-}
-
-func Translate(points Set[Point], x int, y int) Set[Point] {
-	translated := Set[Point]{}
+// Translate a set of points
+func Translate(points Set[types.Point], x int, y int) Set[types.Point] {
+	translated := Set[types.Point]{}
 	for pt := range points {
 		translated.Add(pt.Translate(x, y))
 	}
 	return translated
 }
 
-func (pt Point) Rotate(degrees int) Point {
-	rad := float64(degrees) * (math.Pi / 180)
-	cos := float32(math.Cos(rad))
-	sin := float32(math.Sin(rad))
-
-	newX := int((float32(pt.X) * cos) - (float32(pt.Y) * sin))
-	newY := int((float32(pt.Y) * cos) + (float32(pt.X) * sin))
-	return Point{newX, newY}
-}
-
 // Rotate a set of points
-func Rotate(points Set[Point], degrees int) Set[Point] {
+func Rotate(points Set[types.Point], degrees int) Set[types.Point] {
 	rad := float64(degrees) * (math.Pi / 180)
 	cos := float32(math.Cos(rad))
 	sin := float32(math.Sin(rad))
 
-	rotated := Set[Point]{}
+	rotated := Set[types.Point]{}
 	for pt := range points {
 		newX := int((float32(pt.X) * cos) - (float32(pt.Y) * sin))
 		newY := int((float32(pt.Y) * cos) + (float32(pt.X) * sin))
-		rotated.Add(Point{newX, newY})
+		rotated.Add(types.Point{X: newX, Y: newY})
 	}
 	return NormalizeToOrigin(rotated)
 }
 
-func (pt Point) Reflect(ax Axis) Point {
-	if ax == X {
-		return Point{pt.X, -pt.Y}
-	} else {
-		return Point{-pt.X, pt.Y}
-	}
-}
-
 // Reflect a set of points across an axis
-func Reflect(points Set[Point], ax Axis) Set[Point] {
-	reflected := Set[Point]{}
+func Reflect(points Set[types.Point], ax types.Axis) Set[types.Point] {
+	reflected := Set[types.Point]{}
 	for pt := range points {
 		reflected.Add(pt.Reflect(ax))
 	}
 	return NormalizeToOrigin(reflected)
 }
 
-func NormalizeToOrigin(points Set[Point]) Set[Point] {
+func NormalizeToOrigin(points Set[types.Point]) Set[types.Point] {
 
 	minCoordinate := func() (int, int, error) {
 		if points.Size() == 0 {
@@ -101,10 +64,6 @@ func NormalizeToOrigin(points Set[Point]) Set[Point] {
 	}
 
 	return Translate(points, -minX, -minY)
-}
-
-func degToRad(degrees float64) float64 {
-	return degrees * math.Pi / 180
 }
 
 // {

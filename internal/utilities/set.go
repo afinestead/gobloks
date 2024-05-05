@@ -1,5 +1,7 @@
 package utilities
 
+type void struct{} //empty structs occupy 0 memory
+
 type Set[T comparable] map[T]void
 
 func NewSet[T comparable](items []T) Set[T] {

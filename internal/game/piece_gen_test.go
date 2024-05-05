@@ -1,11 +1,11 @@
-package utilities
+package game_test
 
 import (
 	"testing"
 )
 
 func TestGeneratingNextPieces(t *testing.T) {
-	p := FromPoints(NewSet[PieceCoord]([]PieceCoord{{0, 0}}))
+	p := PieceFromPoints(NewSet[PieceCoord]([]PieceCoord{{0, 0}}))
 	generated := generateNextPieces(p)
 	expectedSize := 1
 	resultSize := generated.Size()
@@ -13,7 +13,7 @@ func TestGeneratingNextPieces(t *testing.T) {
 	if expectedSize != resultSize {
 		t.Errorf("Next piece generation failed. Expected set of size %v, got size %v\n", expectedSize, resultSize)
 	}
-	expected := FromPoints(NewSet[PieceCoord]([]PieceCoord{{0, 0}, {0, 1}}))
+	expected := PieceFromPoints(NewSet[PieceCoord]([]PieceCoord{{0, 0}, {0, 1}}))
 	for piece := range generated {
 		if !piece.Is(expected) {
 			t.Errorf("Next piece generation failed. expected:\n%s\ngot:\n%s\n", expected.ToString(), piece.ToString())
