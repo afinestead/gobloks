@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"gobloks/internal/types"
 	"os"
 	"time"
@@ -31,7 +30,6 @@ func CreateAccessToken(pid types.PlayerID, gid types.GameID, ttl uint) (string, 
 	tokenString, err := token.SignedString(secretKey)
 
 	if err != nil {
-		fmt.Println("here1", err)
 		return "", err
 	}
 
