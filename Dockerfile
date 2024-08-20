@@ -2,7 +2,7 @@
 FROM golang:1.23 AS build_env
 
 WORKDIR /opt/server
-COPY server/go.mod server/go.sum ./
+COPY server/go.mod ./
 RUN go mod download
 
 COPY server/ ./
