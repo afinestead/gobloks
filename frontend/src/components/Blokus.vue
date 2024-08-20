@@ -432,7 +432,6 @@ function issueBoardUpdate(piece) {
   console.log(placement);
   
   return store.placePiece(placement);
-  // return store.dispatch("placePiece", {piece: {shape: shape}, origin: origin});
 };
 
 function sendMessage() {
@@ -470,7 +469,8 @@ watch(selectedPiece, (newPiece) => {
 }
 
 .my-pieces {
-  border: 1px solid black;
+  border: 1px solid gray;
+  border-radius: 4px;
   padding: 0.5em;
   height: 100%;
   width: 10%;
@@ -481,7 +481,8 @@ watch(selectedPiece, (newPiece) => {
 
 .board {
   padding: 1em;
-  border: 1px solid black;
+  border: 1px solid gray;
+  border-radius: 4px;
   background-color: rgba(255,255,255,0.9);
   height: 100%;
   aspect-ratio: 1/1;
@@ -530,7 +531,6 @@ watch(selectedPiece, (newPiece) => {
 }
 
 .game-state {
-  border: 1px solid grey;
   border-radius: 4px;
   padding-left: 0.5em;
 }

@@ -52,7 +52,7 @@ func main() {
 	router.PUT("/place", server.PlacePiece)
 	router.GET("/ws", server.HandleWebsocket)
 
-	router.Run("localhost:8888")
+	router.Run("0.0.0.0:8888")
 
 	// var pieceDegree uint8 = 5
 	// tighteningFactor := 0.9
