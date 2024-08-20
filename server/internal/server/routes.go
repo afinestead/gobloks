@@ -63,4 +63,27 @@ func JoinGame(c *gin.Context) {
 
 func PlacePiece(c *gin.Context) {
 	fmt.Println("placing")
+
+	g := c.MustGet("manager").(*manager.GameManager)
+	gid := c.MustGet("gid").(types.GameID)
+	gs, err := g.FindGame(gid)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, fmt.Sprintf("no game %s", gid))
+		return
+	}
+
+	pid := c.MustGet("pid").(types.PlayerID)
+
+	var placement types.Placement
+	err = c.BindJSON(&placement)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, err)
+		return
+	}
+
+	err = gs.PlacePiece(pid, placement)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusConflict, "invalid placement")
+		return
+	}
 }

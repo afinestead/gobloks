@@ -10,16 +10,16 @@ export default class DefaultApi {
   }
 
   getCurrentPlayer(accessToken) {
-      let postBody = null;
+      const postBody = null;
 
-      let pathParams = {};
-      let queryParams = {};
-      let headerParams = {'Access-Token': accessToken};
-      let formParams = {};
+      const pathParams = {};
+      const queryParams = {};
+      const headerParams = {'Access-Token': accessToken};
+      const formParams = {};
 
-      let authNames = [];
-      let contentTypes = [];
-      let accepts = ['application/json'];
+      const authNames = [];
+      const contentTypes = [];
+      const accepts = ['application/json'];
 
       return this.apiClient.callApi(
         '/player', 'GET',
@@ -36,14 +36,33 @@ export default class DefaultApi {
     const headerParams = {};
     const formParams = {};
 
-    let authNames = [];
-    let contentTypes = [];
-    let accepts = ['application/json'];
+    const authNames = [];
+    const contentTypes = [];
+    const accepts = ['application/json'];
     
     return this.apiClient.callApi(
       '/join', 'POST',
       pathParams, queryParams, headerParams, formParams, postBody,
       authNames, contentTypes, accepts, AccessToken, null
+    );
+  }
+
+  place(accessToken, placement) {
+    const postBody = {"coords": placement};
+
+    const pathParams = {};
+    const queryParams = {};
+    const headerParams = {'Access-Token': accessToken};
+    const formParams = {};
+
+    const authNames = [];
+    const contentTypes = ['application/json'];
+    const accepts = ['application/json'];
+
+    return this.apiClient.callApi(
+      '/place', 'PUT',
+      pathParams, queryParams, headerParams, formParams, postBody,
+      authNames, contentTypes, accepts, Object, null
     );
   }
 };

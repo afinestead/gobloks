@@ -2,6 +2,7 @@ package game
 
 import (
 	"errors"
+	"fmt"
 	"gobloks/internal/types"
 	"gobloks/internal/utilities"
 	"math"
@@ -135,6 +136,14 @@ func (b *Board) isStartingSquare(square types.Point, owner types.Owner) bool {
 	return sqOwner.IsOrigin() && sqOwner.IsSamePlayer(owner)
 }
 
+func (b *Board) isOriginForOther(square types.Point, owner types.Owner) bool {
+	sqOwner, err := b.owner(square)
+	if err != nil {
+		return false
+	}
+	return sqOwner.IsOrigin() && !sqOwner.IsSamePlayer(owner)
+}
+
 func (b *Board) occupiedByPlayer(square types.Point, owner types.Owner) bool {
 	sqOwner, err := b.owner(square)
 	if err != nil {
@@ -153,6 +162,10 @@ func (b *Board) validPlacement(origin types.Point, p Piece, owner types.Owner) b
 		if b.hasSelfSide(absPt, owner) {
 			return false
 		}
+		if b.isOriginForOther(absPt, owner) {
+			return false
+		}
+
 		validCorner = validCorner || b.isStartingSquare(absPt, owner) || b.hasCorner(absPt, owner)
 	}
 	return validCorner
@@ -199,5 +212,26 @@ func (b *Board) Place(origin types.Point, p Piece, owner types.Owner) (bool, err
 		}
 	}
 	return true, nil
+}
 
+func (b *Board) findCorners(owner types.Owner) []types.Point {
+	corners := make([]types.Point, 0, b.MaxX*b.MaxY)
+	for ii := 0; ii < int(b.MaxX); ii++ {
+		for jj := 0; jj < int(b.MaxY); jj++ {
+			if b.layout[ii][jj].IsVacant() && b.hasCorner(types.Point{X: ii, Y: jj}, owner) {
+				corners = append(corners, types.Point{X: ii, Y: jj})
+			}
+		}
+	}
+	return corners
+}
+
+func (b *Board) HasPlacement(owner types.Owner, pieces []Piece) bool {
+	// find piece corners
+	corners := b.findCorners(owner)
+	fmt.Println(corners)
+
+	// find board corners
+
+	return true //TODO
 }

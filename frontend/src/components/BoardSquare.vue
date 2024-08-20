@@ -2,9 +2,8 @@
   <div
     class="board-square"
     :style="{
-      backgroundColor: isOccupied ? ownerColor : '#ffffff',
+      backgroundColor: isOccupied ? ownerColor : isOrigin ? `${ownerColor}50`: '#ffffff',
       visibility: isHidden ? 'hidden' : 'unset',
-      borderColor: isOrigin && !isOccupied ? ownerColor : 'black',
     }"
   />
 </template>

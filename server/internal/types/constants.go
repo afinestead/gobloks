@@ -25,4 +25,11 @@ const (
 	Y
 )
 
+const (
+	PLAYER_UPDATE SocketDataType = iota
+	PUBLIC_GAME_STATE
+	PRIVATE_GAME_STATE
+	CHAT_MESSAGE
+)
+
 const MANAGED_GAMES_START_SIZE = 256

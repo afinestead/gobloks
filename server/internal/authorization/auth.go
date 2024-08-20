@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"gobloks/internal/types"
 	"log"
 	"net/http"
@@ -95,7 +94,6 @@ func CreateAccessToken(pid types.PlayerID, gid types.GameID, ttl int) (string, e
 }
 
 func verifyAccessToken(token string) (*jwt.Token, error) {
-	fmt.Println(token)
 	return jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("invalid token")

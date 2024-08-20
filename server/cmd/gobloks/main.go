@@ -19,7 +19,7 @@ func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, Access-Token")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT")
 		c.Writer.Header().Set("Access-Control-Expose-Headers", "Access-Token")
 
@@ -49,6 +49,7 @@ func main() {
 
 	router.POST("/create", server.CreateGame)
 	router.POST("/join", server.JoinGame)
+	router.PUT("/place", server.PlacePiece)
 	router.GET("/ws", server.HandleWebsocket)
 
 	router.Run("localhost:8888")

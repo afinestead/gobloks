@@ -56,10 +56,21 @@
             placeholder="Say something..."
             hide-details
             variant="outlined"
-            append-inner-icon="mdi-send"
-            @click:appendInner="sendMessage"
             @keydown.enter="sendMessage"
-          />
+          >
+            <template v-slot:append-inner>
+              <v-btn 
+                size="small"
+                variant="plain"
+                @click="sendMessage"
+                :disabled="!myChat"
+                :color="playerColors[playerID]"
+                :ripple="false"
+              >
+                <v-icon size="x-large">mdi-send</v-icon>
+              </v-btn>
+            </template>
+          </v-text-field>
         </div>
       </div>
     </div>
@@ -94,6 +105,8 @@ import PlayerCard from './PlayerCard.vue'
 import Players from './Players.vue'
 import { useRouter } from 'vue-router';
 import { useStore } from '@/stores/store';
+import { MessageType } from '@/api';
+import Message from '@/api/model/Message';
 
 
 const store = useStore();
@@ -129,12 +142,19 @@ const gameMsgStyle = ref([
 "font-weight-thin",
 ]);
 
-const boardHTML = ref([]);
+// const boardHTML = ref([]);
+  // nextTick(() => boardHTML.value = Array.from(boardRef.value?.children || []).map(htmlCol => Array.from(htmlCol?.children)));
+const boardHTML = computed(() => Array.from(boardRef.value?.children || []).map(htmlCol => Array.from(htmlCol?.children)));
+
+const IsOccupied = ([x,y]) => !Boolean(board.value[x][y] & (1<<29));
+const IsValid = ([x,y]) => !Boolean(board.value[x][y] & (1<<31));
+const SquarePID = ([x,y]) => (board.value[x][y] & 0xffff);
+const IsMyOrigin = coords => IsValid(coords) && Boolean(board.value[coords[0]][coords[1]] & (1<<30)) && SquarePID(coords) === playerID.value;
+const IsOtherOrigin = coords => IsValid(coords) && Boolean(board.value[coords[0]][coords[1]] & (1<<30)) && SquarePID(coords) !== playerID.value;
+const OccupiedByMe = coords => IsValid(coords) && IsOccupied(coords) && SquarePID(coords) === playerID.value;
 
 function calculateOverlap(i, j) {
 if (selectedPiece.value) {
-
-  const OccupiedByMe = ([x,y]) => board.value[x][y] === playerID.value;
 
   const nullCoords = [null,null];
 
@@ -203,22 +223,27 @@ if (selectedPiece.value) {
       (rightDownCoords !== nullCoords && OccupiedByMe(rightDownCoords))
     );
   }
-
-
+  
   const overlapCoords = GetOverlapCoords();
+
   // TODO: be smarter about recomputing css
   clearHighlight();
 
   if (
     overlapCoords !== null &&
+    overlapCoords.every(coords => IsValid(coords)) &&
     overlapCoords.every(coords => !HasSideNeighbor(coords)) &&
-    overlapCoords.some(coords => HasCornerNeighbor(coords) || (coords[0] === 0 && coords[1] === 0))
+    overlapCoords.every(coords => !IsOtherOrigin(coords)) &&
+    overlapCoords.some(coords => HasCornerNeighbor(coords) || IsMyOrigin(coords))
   ) {
     // This is a valid placement
-    overlapCoords.forEach(([x,y]) => {
+
+    for (const [x,y] of overlapCoords) {
       const sq = boardHTML.value[x][y];
       sq.classList.add("highlighted");
-    });
+
+    }
+
     selectedPieceOverlap.value = overlapCoords;
     return;
   }
@@ -266,36 +291,38 @@ onMounted(() => {
   new_ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
     console.log(msg);
-    if ("pid" in msg) {
-      playerID.value = msg.pid; 
-    }
 
-    if ("pieces" in msg) {
-      myPieces.value = msg.pieces;
-    }
+    switch (msg.type) {
 
-    if ("players" in msg) {
-      allPlayers.value = msg.players.sort((p1,p2) => p1.pid - p2.pid);
-    }
+      case MessageType.ChatMesssage:
+        liveChat.value.unshift({
+          origin: msg.data.origin,
+          msg: msg.data.message,
+        });
+        break;
+      
+      case MessageType.PublicGameState:
+        boardSize.value = msg.data.board.length;
+        board.value = msg.data.board;
+        whoseTurn.value = msg.data.turn;
+        nextTick(() => onResize());
+        break;
+      
+      case MessageType.PrivateGameState:
+        playerID.value = msg.data.pid; 
+        myPieces.value = msg.data.pieces;
+        break;
+      
+      case MessageType.PlayerUpdate:
+        allPlayers.value = msg.data.players.sort((p1,p2) => p1.pid - p2.pid);  
+        break;
 
-    if ("board" in msg) {
-      boardSize.value = msg.board.length;
-      board.value = msg.board;
-      nextTick(() => onResize());
-    }
-    if ("turn" in msg) {
-      whoseTurn.value = msg.turn;
-    }
-    // if ("status" in msg) {
-    //   gameStatus.value = msg.status;
-    // }
-    if ("message" in msg) {
-      liveChat.value.unshift({
-        origin: msg.origin,
-        msg: msg.message
-      });
+      default:
+        console.log("unknown message type ", msg);
+        break;
     }
   }
+
   new_ws.onerror = (e) => {
     store.revokeToken();
     router.push({ path: "/join" });
@@ -349,6 +376,7 @@ function snapPieceToCursor() {
     index: idx,
     elem: block,
   };
+
   block.classList.add("hidden");
 
   await nextTick(() => snapPieceToCursor());
@@ -379,7 +407,6 @@ function placePiece() {
 };
 
 function handlePieceClick(evt, piece, idx) {
-  console.log("click");
   if (selectedPiece.value === null) {
     pickupPiece(evt, piece, idx);
   } else {
@@ -396,50 +423,26 @@ function isMyTurn() {
   return true;
 };
 
-// function translateBoard(matrix, n) {
-//   console.log(n);
-  
-//   if (!matrix.length || n == null) {
-//     return [];
-//   }
-//   if (n === 1) {
-//     return matrix;
-//   }
-//   matrix = matrix[0].map((_, i) => matrix.map(row => row[i]).reverse())
-//   return translateBoard(matrix, n - 1);
-// };
-
 function issueBoardUpdate(piece) {
-  const translatePoint = (pt, n) => {
-    if (n === 1) {
-      return pt;
-    }
+  let placement = [];
+  for (const [x,y] of piece) {
+    placement.push({x:x, y:y});
+  }
 
-    const rotatedX = boardSize.value - pt.y- 1;
-    const rotatedY = pt.x;
-
-    return translatePoint({
-      x: (rotatedX + boardSize.value) % boardSize.value,
-      y: (rotatedY + boardSize.value) % boardSize.value
-    }, n - 1);
-  };
-
-  const translatedPiece = piece.map(([x,y]) => translatePoint({x, y}, playerID.value));
-  const origin = translatedPiece[0];
-
-  const shape = translatedPiece.map(tile => ({
-    x: tile.x - origin.x,
-    y: tile.y - origin.y,
-  }));
-
-  return store.dispatch("placePiece", {piece: {shape: shape}, origin: origin});
+  console.log(placement);
+  
+  return store.placePiece(placement);
+  // return store.dispatch("placePiece", {piece: {shape: shape}, origin: origin});
 };
 
 function sendMessage() {
   if (myChat.value.length) {
-    console.log();
-    
-    ws.value.send(`{"origin": ${playerID.value}, "message": "${myChat.value}"}`);
+    ws.value.send(
+      JSON.stringify({
+        type: MessageType.ChatMesssage,
+        data: {origin: playerID.value, message: myChat.value},
+      })
+    );
     myChat.value = "";
   }
 }
@@ -457,31 +460,29 @@ watch(selectedPiece, (newPiece) => {
 .game-container {
   height: 100%;
   min-height: 480px;
-  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .interact-area {
-  float: left;
   width: 420px;
   height: 100%;
 }
 
 .my-pieces {
-  float: left;
   border: 1px solid black;
   padding: 0.5em;
   height: 100%;
   width: 10%;
   overflow-y: auto;
   overflow-x: hidden;
-  background-color: lightgray;
+  background-color: rgba(255,255,255,0.9);
 }
 
 .board {
-  float: left;
   padding: 1em;
   border: 1px solid black;
-  background-color: lightgray;
+  background-color: rgba(255,255,255,0.9);
   height: 100%;
   aspect-ratio: 1/1;
 }
@@ -520,7 +521,7 @@ watch(selectedPiece, (newPiece) => {
 }
 
 .chat-box {
-  background-color: lightgray;
+  background-color: rgba(255,255,255,0.9);
   height: 100%;
   display: flex;
   flex-direction: column;

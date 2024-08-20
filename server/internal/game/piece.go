@@ -233,3 +233,8 @@ func (ps *PieceSet) Has(piece Piece) bool {
 	piece.repr = piece.hash
 	return utilities.Set[Piece](*ps).Has(piece)
 }
+
+func (ps *PieceSet) Remove(piece Piece) {
+	piece.repr = piece.hash
+	utilities.Set[Piece](*ps).Remove(piece)
+}

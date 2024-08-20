@@ -41,7 +41,7 @@ func (s *SocketManager) Disconnect(conn *SocketConnection) {
 	s.activeConnections.Remove(conn)
 }
 
-func (s *SocketManager) Send(conn *SocketConnection, out interface{}) {
+func (s *SocketManager) Send(conn *SocketConnection, out *types.SocketData) {
 	conn.mu.Lock()
 	defer conn.mu.Unlock()
 	err := conn.socket.WriteJSON(out)
@@ -50,12 +50,12 @@ func (s *SocketManager) Send(conn *SocketConnection, out interface{}) {
 	}
 }
 
-func (s *SocketManager) Recv(conn *SocketConnection, message *types.ChatMessage) error {
-	return conn.socket.ReadJSON(message)
+func (s *SocketManager) Recv(conn *SocketConnection, in *types.SocketData) error {
+	return conn.socket.ReadJSON(in)
 }
 
 // func (s *SocketManager) Broadcast(message *types.ChatMessage) {
-func (s *SocketManager) Broadcast(out interface{}) {
+func (s *SocketManager) Broadcast(out *types.SocketData) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for socket := range s.activeConnections {

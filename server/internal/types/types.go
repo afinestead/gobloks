@@ -5,8 +5,16 @@ type Axis int
 type Owner uint32
 type PlayerID uint16
 type GameID string
+type SocketDataType uint32
 
-type Coordinate struct{ X, Y uint8 }
+type SocketData struct {
+	Type SocketDataType `json:"type"`
+	Data interface{}    `json:"data"`
+}
+
+type Placement struct {
+	Coordinates []Point `json:"coords"`
+}
 
 type GameConfig struct {
 	Players     uint    `json:"players" binding:"required,gte=1,lte=65536"`
@@ -25,10 +33,13 @@ type ChatMessage struct {
 	Message string `json:"message"`
 }
 
-type PublicGameState struct {
-	Board   [][]Owner      `json:"board"`
-	Turn    PlayerID       `json:"turn"`
+type ActivePlayers struct {
 	Players []PlayerConfig `json:"players"`
+}
+
+type PublicGameState struct {
+	Board [][]Owner `json:"board"`
+	Turn  PlayerID  `json:"turn"`
 }
 
 type PrivateGameState struct {

@@ -18,13 +18,12 @@ export const useStore = defineStore("store", {
             return this.api.getCurrentPlayer(this.token);
         },
         async joinGame(gameId, name, color) {
-            console.log(name, color);
             const r = await this.api.joinGame(gameId, name, color);
             this.token = r.response.headers['access-token'];
             localStorage.setItem("accessToken", this.token);
         },
-        placePiece(placement) {
-            // return state.api.placePiecePlacePut(placement, {tokenHeader: state.token});
+        async placePiece(placement) {
+            return this.api.place(this.token, placement);
         },
         revokeToken() {
             this.token = null;

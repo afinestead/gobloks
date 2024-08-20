@@ -8,8 +8,8 @@
         blockStyle,
         {
           backgroundColor: color,
-          top: `${block.y*squareSize}px`,
-          left: `${block.x*squareSize}px`,
+          top: `${block.x*squareSize}px`,
+          left: `${block.y*squareSize}px`,
         }
       ]"
       @click.stop="handlePieceClick"
@@ -109,13 +109,10 @@ function translatePiece(blocks) {
 }
 
 function flipPiece(ax) {
-  console.log(blocksInternal.value);
-  
   const p = 
     ax === "x" ? blocksInternal.value.map(b => ({x: b.x, y: -b.y})) :
                  blocksInternal.value.map(b => ({x: -b.x, y: b.y}));
   blocksInternal.value = translatePiece(p);
-  console.log(blocksInternal.value);
   emit("change");
 }
 

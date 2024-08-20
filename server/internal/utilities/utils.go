@@ -27,7 +27,8 @@ func Rotate(points Set[types.Point], degrees int) Set[types.Point] {
 		newY := int((float32(pt.Y) * cos) + (float32(pt.X) * sin))
 		rotated.Add(types.Point{X: newX, Y: newY})
 	}
-	return NormalizeToOrigin(rotated)
+	normal, _ := NormalizeToOrigin(rotated)
+	return normal
 }
 
 // Reflect a set of points across an axis
@@ -36,10 +37,11 @@ func Reflect(points Set[types.Point], ax types.Axis) Set[types.Point] {
 	for pt := range points {
 		reflected.Add(pt.Reflect(ax))
 	}
-	return NormalizeToOrigin(reflected)
+	normal, _ := NormalizeToOrigin(reflected)
+	return normal
 }
 
-func NormalizeToOrigin(points Set[types.Point]) Set[types.Point] {
+func NormalizeToOrigin(points Set[types.Point]) (Set[types.Point], types.Point) {
 
 	minCoordinate := func() (int, int, error) {
 		if points.Size() == 0 {
@@ -60,10 +62,10 @@ func NormalizeToOrigin(points Set[types.Point]) Set[types.Point] {
 	minX, minY, err := minCoordinate()
 
 	if err != nil {
-		return points // 0 size piece
+		return points, types.Point{} // 0 size piece
 	}
 
-	return Translate(points, -minX, -minY)
+	return Translate(points, -minX, -minY), types.Point{X: minX, Y: minY}
 }
 
 // {
