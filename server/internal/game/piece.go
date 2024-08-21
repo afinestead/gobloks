@@ -238,3 +238,11 @@ func (ps *PieceSet) Remove(piece Piece) {
 	piece.repr = piece.hash
 	utilities.Set[Piece](*ps).Remove(piece)
 }
+
+func (ps *PieceSet) Copy() PieceSet {
+	cpy := PieceSet{}
+	for piece := range *ps {
+		cpy.Add(piece)
+	}
+	return cpy
+}

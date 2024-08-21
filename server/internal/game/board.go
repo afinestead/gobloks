@@ -41,7 +41,7 @@ func NewBoard(players []types.PlayerID, pixelsPerPlayer uint, tighteningFactor f
 	for i := range board.layout {
 		board.layout[i] = make([]types.Owner, diameter)
 		for j := range board.layout[i] {
-			board.layout[i][j] = types.RESERVED
+			board.layout[i][j] = types.RESERVED | types.VACANT
 		}
 	}
 
@@ -166,7 +166,10 @@ func (b *Board) validPlacement(origin types.Point, p Piece, owner types.Owner) b
 			return false
 		}
 
-		validCorner = validCorner || b.isStartingSquare(absPt, owner) || b.hasCorner(absPt, owner)
+		cornerExists := b.hasCorner(absPt, owner)
+		startingSq := b.isStartingSquare(absPt, owner)
+
+		validCorner = validCorner || startingSq || cornerExists
 	}
 	return validCorner
 }

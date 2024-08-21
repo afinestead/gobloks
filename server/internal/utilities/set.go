@@ -12,6 +12,14 @@ func NewSet[T comparable](items []T) Set[T] {
 	return s
 }
 
+func (s Set[T]) Copy() Set[T] {
+	newSet := NewSet([]T{})
+	for elem := range s {
+		newSet.Add(elem)
+	}
+	return newSet
+}
+
 func (s Set[T]) Has(v T) bool {
 	_, ok := s[v]
 	return ok

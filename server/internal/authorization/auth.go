@@ -35,12 +35,12 @@ func AuthMiddleware(noAuth []gin.HandlerFunc) gin.HandlerFunc {
 		if err != nil {
 			query_tok, ok := c.GetQuery(AccessTokenQuery)
 			if !ok {
-				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "token invalid"})
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "access denied"})
 				return
 			}
 			token, err = verifyAccessToken(query_tok)
 			if err != nil {
-				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "token invalid"})
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "access denied"})
 				return
 			}
 		}

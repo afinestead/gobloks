@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"gobloks/internal/authorization"
 	"gobloks/internal/manager"
 	"gobloks/internal/server"
@@ -15,9 +16,16 @@ func ApiMiddleware(m *manager.GameManager) gin.HandlerFunc {
 	}
 }
 
-func CORSMiddleware() gin.HandlerFunc {
+func CORSMiddleware(production bool) gin.HandlerFunc {
+	var allowedOrigins string
+	if production {
+		allowedOrigins = "http://209.97.144.150:7777/"
+	} else {
+		allowedOrigins = "*"
+	}
+
 	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Origin", allowedOrigins)
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, Access-Token")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT")
@@ -33,6 +41,12 @@ func CORSMiddleware() gin.HandlerFunc {
 }
 
 func main() {
+	isProd := flag.Bool("production", false, "true if running in production")
+	flag.Parse()
+
+	if *isProd {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	authorization.SetupKeys()
 	globalGameManager := manager.InitGameManager()
@@ -40,7 +54,7 @@ func main() {
 	router := gin.Default()
 	router.Use(
 		ApiMiddleware(globalGameManager),
-		CORSMiddleware(),
+		CORSMiddleware(*isProd),
 		authorization.AuthMiddleware([]gin.HandlerFunc{
 			server.CreateGame,
 			server.JoinGame,

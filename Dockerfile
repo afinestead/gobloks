@@ -2,10 +2,9 @@
 FROM golang:1.23 AS build_env
 
 WORKDIR /opt/server
-COPY server/go.mod ./
-RUN go mod download
 
 COPY server/ ./
+RUN go mod tidy && go mod download
 WORKDIR /opt/server/cmd/gobloks
 RUN CGO_ENABLED=0 GOOS=linux go build -o /opt/docker-gobloks-server
 
@@ -50,7 +49,7 @@ RUN echo -e \
 "[program:nginx] \n"\
 "command=/usr/sbin/nginx -g 'daemon off;' \n"\
 "[program:gobloks-server] \n"\
-"command=/opt/docker-gobloks-server \n"\
+"command=/opt/docker-gobloks-server -production=true \n"\
 > /etc/supervisord.conf
 
 EXPOSE 7777 8888

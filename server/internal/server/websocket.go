@@ -24,7 +24,7 @@ func HandleWebsocket(c *gin.Context) {
 	gid := c.MustGet("gid").(types.GameID)
 	gs, err := g.FindGame(gid)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": "invalid token"})
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": "access denied"})
 		return
 	}
 

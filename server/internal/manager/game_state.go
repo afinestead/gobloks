@@ -43,7 +43,6 @@ func InitGameState(config types.GameConfig) *GameState {
 
 	pieces, setPixels, err := game.GeneratePieceSet(config.BlockDegree) // TODO: cache
 	if err != nil {
-		fmt.Println(err)
 		return nil
 	}
 
@@ -58,7 +57,6 @@ func InitGameState(config types.GameConfig) *GameState {
 
 	board, err := game.NewBoard(pids, setPixels, config.Density)
 	if err != nil {
-		fmt.Println(err)
 		return nil
 	}
 
@@ -122,7 +120,7 @@ func (gs *GameState) ConnectPlayer(name string, color uint) (types.PlayerID, err
 				profile: PlayerProfile{
 					Name:   name,
 					Color:  color,
-					Pieces: gs.startingPieces,
+					Pieces: gs.startingPieces.Copy(),
 				},
 				status: JOINED,
 				socket: nil,
@@ -234,8 +232,6 @@ func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) e
 	}
 
 	piece := game.PieceFromPoints(relCoords)
-	fmt.Println(piece.ToString())
-
 	if !player.profile.Pieces.Has(piece) {
 		return errors.New("player does not have this piece")
 	}
