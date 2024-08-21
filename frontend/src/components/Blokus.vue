@@ -231,6 +231,7 @@ if (selectedPiece.value) {
 
   if (
     overlapCoords !== null &&
+    overlapCoords.every(coords => !IsOccupied(coords)) &&
     overlapCoords.every(coords => IsValid(coords)) &&
     overlapCoords.every(coords => !HasSideNeighbor(coords)) &&
     overlapCoords.every(coords => !IsOtherOrigin(coords)) &&
