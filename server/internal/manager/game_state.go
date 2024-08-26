@@ -65,13 +65,14 @@ func InitGameState(config types.GameConfig) *GameState {
 		board,
 		pids[0],
 		pieces,
-		InitSocketManager(),
+		InitSocketManager(len(pids)),
 	}
 }
 
 func (gs *GameState) nextTurn() {
 	nextUp := (gs.turn + 1) % types.PlayerID(len(gs.players))
-	// if gs.board.HasPlacement(gs.players[nextUp].profile.Pieces) {
+	if gs.board.HasPlacement(types.Owner(nextUp), gs.players[nextUp].profile.Pieces) {
+	}
 	// 	gs.turn = nextUp
 	// } else {
 	// 	// gs.nextTurn()
@@ -163,7 +164,7 @@ func (gs *GameState) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) e
 		},
 	)
 
-	var playerPieces [][]types.Point
+	var playerPieces []types.PublicPiece
 
 	for piece := range player.profile.Pieces {
 		pieceCoords := piece.ToPoints()
@@ -174,7 +175,10 @@ func (gs *GameState) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) e
 				Y: int(coord.Y),
 			})
 		}
-		playerPieces = append(playerPieces, piecePoints)
+		playerPieces = append(playerPieces, types.PublicPiece{
+			Hash: piece.Hash(),
+			Body: piecePoints,
+		})
 	}
 
 	// Send the player their PID and pieces on connection
@@ -226,7 +230,7 @@ func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) e
 
 	// convert placement to Piece/origin
 	relPoints, origin := utilities.NormalizeToOrigin(utilities.NewSet(placement.Coordinates))
-	relCoords := utilities.NewSet([]game.PieceCoord{})
+	relCoords := utilities.NewSet([]game.PieceCoord{}, relPoints.Size())
 	for coord := range relPoints {
 		relCoords.Add(game.PieceCoord{X: uint8(coord.X), Y: uint8(coord.Y)})
 	}

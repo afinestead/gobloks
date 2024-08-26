@@ -10,7 +10,7 @@ func (o1 Owner) IsSamePlayer(o2 Owner) bool {
 }
 
 func (o Owner) IsVacant() bool {
-	return o&VACANT == VACANT
+	return o&RESERVED == RESERVED || o&VACANT == VACANT
 }
 
 func (o Owner) IsOrigin() bool {

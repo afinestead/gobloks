@@ -73,7 +73,6 @@ defineExpose({
 
 onMounted(() => {
   blocksInternal.value = props.blocks;
-  
 });
 
 watch(() => props.blocks, (newBlocks) => blocksInternal.value = newBlocks);

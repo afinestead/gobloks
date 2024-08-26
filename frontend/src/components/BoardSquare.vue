@@ -1,10 +1,7 @@
 <template>
   <div
     class="board-square"
-    :style="{
-      backgroundColor: isOccupied ? ownerColor : isOrigin ? `${ownerColor}50`: '#ffffff',
-      visibility: isHidden ? 'hidden' : 'unset',
-    }"
+    :style="{ backgroundColor: sqColor, visibility: isHidden ? 'hidden' : 'unset' }"
   />
 </template>
 
@@ -14,13 +11,23 @@ import { computed } from 'vue';
 
 const props = defineProps({
   owner: Number,
-  colors: Object,
+  players: Object,
 });
 
-const ownerColor = computed(() => props.colors[props.owner&0xffff]);
+const ownerColor = computed(() => props.players[props.owner&0xffff]?.color || '#ffffff');
 const isOccupied = computed(() => !(props.owner & (1<<29)));
 const isOrigin = computed(() => props.owner & (1<<30));
 const isHidden = computed(() => props.owner & (1<<31));
+
+const sqColor = computed(() => {
+  if (isOccupied.value) {
+    return `${ownerColor.value}ff`;
+  } else if (isOrigin.value) {
+    return `${ownerColor.value}50`;
+  } else {
+    return '#ffffffff';
+  }
+});
 
 </script>
 

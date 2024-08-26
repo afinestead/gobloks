@@ -50,11 +50,8 @@ const emit = defineEmits(["update:color"])
 const colorPickerActive = ref(false);
 
 watch(colorPickerActive, (isActive) => {
-    console.log(props.colors);
   if (!isActive) {
     const color_update = props.colors[props.playerID];
-    const color_as_int = parseInt(color_update.substring(1), 16);
-    console.log(color_update, color_as_int);
     emit("update:color", color_update)
     // console.log("push player update");
     // ws.value.send(`{"update": {"color": ${color_as_int}}}`);

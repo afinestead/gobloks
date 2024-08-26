@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func CreateGame(c *gin.Context) {
+func createGame(c *gin.Context) {
 	var config types.GameConfig
 
 	err := c.BindJSON(&config)
@@ -25,7 +25,7 @@ func CreateGame(c *gin.Context) {
 	c.IndentedJSON(http.StatusCreated, gid)
 }
 
-func JoinGame(c *gin.Context) {
+func joinGame(c *gin.Context) {
 	gid, ok := c.GetQuery("game")
 	if !ok {
 		c.AbortWithStatusJSON(http.StatusNotFound, "no game provided")
@@ -61,7 +61,7 @@ func JoinGame(c *gin.Context) {
 	c.Writer.Header().Set("Access-Token", token)
 }
 
-func PlacePiece(c *gin.Context) {
+func placePiece(c *gin.Context) {
 	fmt.Println("placing")
 
 	g := c.MustGet("manager").(*manager.GameManager)

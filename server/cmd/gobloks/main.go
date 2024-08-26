@@ -2,78 +2,59 @@ package main
 
 import (
 	"flag"
-	"gobloks/internal/authorization"
+	"fmt"
 	"gobloks/internal/manager"
 	"gobloks/internal/server"
-
-	"github.com/gin-gonic/gin"
+	"gobloks/internal/types"
 )
-
-func ApiMiddleware(m *manager.GameManager) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set("manager", m)
-		c.Next()
-	}
-}
-
-func CORSMiddleware(production bool) gin.HandlerFunc {
-	var allowedOrigins string
-	if production {
-		allowedOrigins = "http://209.97.144.150:7777/"
-	} else {
-		allowedOrigins = "*"
-	}
-
-	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", allowedOrigins)
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, Access-Token")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT")
-		c.Writer.Header().Set("Access-Control-Expose-Headers", "Access-Token")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
-	}
-}
 
 func main() {
 	isProd := flag.Bool("production", false, "true if running in production")
 	flag.Parse()
+	server.Start(8888, *isProd)
 
-	if *isProd {
-		gin.SetMode(gin.ReleaseMode)
-	}
-
-	authorization.SetupKeys()
 	globalGameManager := manager.InitGameManager()
 
-	router := gin.Default()
-	router.Use(
-		ApiMiddleware(globalGameManager),
-		CORSMiddleware(*isProd),
-		authorization.AuthMiddleware([]gin.HandlerFunc{
-			server.CreateGame,
-			server.JoinGame,
-		}),
-	)
+	gid := globalGameManager.CreateGame(types.GameConfig{
+		Players:     1,
+		BlockDegree: 5,
+		Density:     0.9,
+	})
+	gs, err := globalGameManager.FindGame(gid)
+	if err != nil {
+		fmt.Printf("error finding game: %s\n", err)
+		return
+	}
+	pid, err := gs.ConnectPlayer("test", 0xff00ff)
+	if err != nil {
+		fmt.Printf("error connecting player: %s\n", err)
+		return
+	}
+	err = gs.PlacePiece(pid, types.Placement{
+		Coordinates: []types.Point{{X: 10, Y: 5}},
+	})
+	if err != nil {
+		fmt.Printf("error placing piece: %s\n", err)
+		return
+	}
 
-	router.POST("/create", server.CreateGame)
-	router.POST("/join", server.JoinGame)
-	router.PUT("/place", server.PlacePiece)
-	router.GET("/ws", server.HandleWebsocket)
+	// p := game.PieceFromPoints(utilities.NewSet([]game.PieceCoord{{X: 0, Y: 0}, {X: 0, Y: 1}}))
+	// p := game.PieceFromPoints(utilities.NewSet([]game.PieceCoord{{X: 0, Y: 0}, {X: 0, Y: 1}, {X: 1, Y: 1}}))
+	// p := game.PieceFromPoints(utilities.NewSet([]game.PieceCoord{{X: 0, Y: 0}, {X: 0, Y: 1}, {X: 1, Y: 1}}))
+	// p := game.PieceFromPoints(utilities.NewSet([]game.PieceCoord{{X: 1, Y: 0}, {X: 1, Y: 1}, {X: 0, Y: 1}, {X: 2, Y: 1}, {X: 1, Y: 2}}))
+	// fmt.Println(p.ToString())
+	// fmt.Println(p.Corners())
 
-	router.Run("0.0.0.0:8888")
+	// gs.PlacePiece(pid, types.Placement{
+	// 	Coordinates: []types.Point{{X: 9, Y: 6}, {X: 8, Y: 6}},
+	// })
 
-	// var pieceDegree uint8 = 5
-	// tighteningFactor := 0.9
-	// players := []types.Owner{0, 1, 2, 3, 4, 5, 7, 8}
+	// gs.PlacePiece(pid, types.Placement{
+	// 	Coordinates: []types.Point{{X: 7, Y: 7}, {X: 7, Y: 8}, {X: 7, Y: 9}},
+	// })
 
 	// t1 := time.Now()
-	// pieces, setPixels, err := game.GeneratePieceSet(pieceDegree)
+	// pieces, setPixels, err := game.GeneratePieceSet(5)
 	// t2 := time.Now()
 	// fmt.Printf("generated in %v\n", t2.Sub(t1))
 
@@ -83,7 +64,7 @@ func main() {
 	// 	fmt.Println(len(pieces), setPixels)
 	// }
 
-	// board, err := utilities.NewBoard(players, setPixels, tighteningFactor)
+	// board, err := game.NewBoard(players, setPixels, 0.9)
 
 	// if err != nil {
 	// 	fmt.Printf("%v\n", err)
@@ -91,9 +72,9 @@ func main() {
 	// }
 
 	// board.Place(
-	// 	utilities.Point{X: 29, Y: 15},
-	// 	utilities.PieceFromPoints(utilities.NewSet([]utilities.PieceCoord{{X: 0, Y: 1}, {X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}})),
-	// 	utilities.Owner(0),
+	// 	types.Point{X: 10, Y: 5},
+	// 	game.PieceFromPoints(utilities.NewSet([]game.PieceCoord{{X: 0, Y: 0}})),
+	// 	types.Owner(0),
 	// )
 	// fmt.Println(board.ToString())
 

@@ -51,8 +51,18 @@ func (p *Piece) ToString() string {
 	return stringify64(p.repr, '1', '0')
 }
 
-func (p1 Piece) Is(p2 Piece) bool {
+func (p Piece) Hash() uint64 {
+	return p.hash
+}
+
+// Pieces are identical, but may be in different orientations
+func (p1 Piece) IsSame(p2 Piece) bool {
 	return p1.hash == p2.hash
+}
+
+// Pieces are identical and in the same orientation
+func (p1 Piece) IsExactly(p2 Piece) bool {
+	return p1.IsSame(p2) && p1.repr == p2.repr
 }
 
 func (p Piece) Size() uint8 {
@@ -79,6 +89,66 @@ func (p *Piece) Reflect(ax types.Axis) {
 
 func (p *Piece) Normalize() {
 	p.repr = normalize64(p.repr)
+}
+
+func (p *Piece) Corners() []types.Point {
+	var corners []types.Point
+
+	const deg = int(types.MaxPieceDegree)
+
+	for i := 0; i < deg; i++ {
+		for j := 0; j < deg; j++ {
+			if (p.repr & (1 << (i + j*deg))) != 0 {
+
+				// if left and up and up-left are empty, it's a corner
+				// if right and up and up-right are empty, it's a corner
+				// if left and down and down-left are empty, it's a corner
+				// if right and down and down-right are empty, it's a corner
+
+				upLeft := [3]types.Point{
+					{X: i - 1, Y: j},
+					{X: i, Y: j - 1},
+					{X: i - 1, Y: j - 1},
+				}
+				upRight := [3]types.Point{
+					{X: i + 1, Y: j},
+					{X: i, Y: j - 1},
+					{X: i + 1, Y: j - 1},
+				}
+				downLeft := [3]types.Point{
+					{X: i - 1, Y: j},
+					{X: i, Y: j + 1},
+					{X: i - 1, Y: j + 1},
+				}
+				downRight := [3]types.Point{
+					{X: i + 1, Y: j},
+					{X: i, Y: j + 1},
+					{X: i + 1, Y: j + 1},
+				}
+
+				hasNeighbor := func(pt types.Point) bool {
+					if pt.X < 0 || pt.X >= deg || pt.Y < 0 || pt.Y >= deg {
+						return false
+					}
+					return (p.repr & (1 << (pt.X + pt.Y*deg))) != 0
+				}
+
+				if !hasNeighbor(upLeft[0]) && !hasNeighbor(upLeft[1]) && !hasNeighbor(upLeft[2]) {
+					corners = append(corners, types.Point{X: i - 1, Y: j - 1})
+				}
+				if !hasNeighbor(upRight[0]) && !hasNeighbor(upRight[1]) && !hasNeighbor(upRight[2]) {
+					corners = append(corners, types.Point{X: i + 1, Y: j - 1})
+				}
+				if !hasNeighbor(downLeft[0]) && !hasNeighbor(downLeft[1]) && !hasNeighbor(downLeft[2]) {
+					corners = append(corners, types.Point{X: i - 1, Y: j + 1})
+				}
+				if !hasNeighbor(downRight[0]) && !hasNeighbor(downRight[1]) && !hasNeighbor(downRight[2]) {
+					corners = append(corners, types.Point{X: i + 1, Y: j + 1})
+				}
+			}
+		}
+	}
+	return corners
 }
 
 func (p Piece) addPoint(pt PieceCoord) Piece {

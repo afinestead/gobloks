@@ -15,7 +15,7 @@ func TestGeneratingNextPieces(t *testing.T) {
 	}
 	expected := PieceFromPoints(NewSet[PieceCoord]([]PieceCoord{{0, 0}, {0, 1}}))
 	for piece := range generated {
-		if !piece.Is(expected) {
+		if !piece.IsSame(expected) {
 			t.Errorf("Next piece generation failed. expected:\n%s\ngot:\n%s\n", expected.ToString(), piece.ToString())
 		}
 	}

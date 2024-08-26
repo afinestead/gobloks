@@ -4,8 +4,14 @@ type void struct{} //empty structs occupy 0 memory
 
 type Set[T comparable] map[T]void
 
-func NewSet[T comparable](items []T) Set[T] {
-	s := make(Set[T])
+func NewSet[T comparable](items []T, size ...int) Set[T] {
+	var cap int
+	if len(size) > 0 {
+		cap = size[0]
+	} else {
+		cap = len(items)
+	}
+	s := make(Set[T], cap)
 	for _, item := range items {
 		s.Add(item)
 	}

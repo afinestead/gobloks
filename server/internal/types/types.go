@@ -16,6 +16,11 @@ type Placement struct {
 	Coordinates []Point `json:"coords"`
 }
 
+type PublicPiece struct {
+	Hash uint64  `json:"hash"`
+	Body []Point `json:"body"`
+}
+
 type GameConfig struct {
 	Players     uint    `json:"players" binding:"required,gte=1,lte=65536"`
 	BlockDegree uint8   `json:"degree" binding:"required,gte=1,lte=8"`
@@ -43,6 +48,6 @@ type PublicGameState struct {
 }
 
 type PrivateGameState struct {
-	PID    PlayerID  `json:"pid"`
-	Pieces [][]Point `json:"pieces"`
+	PID    PlayerID      `json:"pid"`
+	Pieces []PublicPiece `json:"pieces"`
 }

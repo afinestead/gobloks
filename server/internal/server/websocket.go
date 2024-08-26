@@ -19,7 +19,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func HandleWebsocket(c *gin.Context) {
+func handleWebsocket(c *gin.Context) {
 	g := c.MustGet("manager").(*manager.GameManager)
 	gid := c.MustGet("gid").(types.GameID)
 	gs, err := g.FindGame(gid)

@@ -19,7 +19,6 @@ onBeforeMount(() => {
 <style>
 
 #app {
-  width: 100%;
   height: 100vh;
   padding: 2em;
   overflow: auto;

@@ -23,8 +23,8 @@ type SocketManager struct {
 	mu                *sync.Mutex
 }
 
-func InitSocketManager() *SocketManager {
-	return &SocketManager{utilities.NewSet([]*SocketConnection{}), &sync.Mutex{}}
+func InitSocketManager(size int) *SocketManager {
+	return &SocketManager{utilities.NewSet([]*SocketConnection{}, size), &sync.Mutex{}}
 }
 
 func (s *SocketManager) Connect(socket *websocket.Conn) *SocketConnection {
