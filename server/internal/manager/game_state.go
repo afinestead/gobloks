@@ -63,20 +63,20 @@ func InitGameState(config types.GameConfig) *GameState {
 	}
 }
 
-func (gs *GameState) nextTurn() {
+func (gs *GameState) nextTurn() (types.PlayerID, error) {
 	if !gs.config.TurnBased {
-		gs.turn = types.PID_NONE
-		return
+		return types.PID_NONE, nil
 	}
 
-	nextUp := (gs.turn + 1) % types.PlayerID(len(gs.players))
-	if gs.board.HasPlacement(types.Owner(nextUp), gs.players[nextUp].profile.Pieces) {
+	for i := gs.turn; i < gs.turn+types.PlayerID(len(gs.players)); i++ {
+		nextUp := ((i + 1) % types.PlayerID(len(gs.players))) + 1
+		fmt.Println("Checking player ", nextUp)
+		if gs.board.HasPlacement(types.Owner(nextUp), gs.players[nextUp].profile.Pieces) {
+			return nextUp, nil
+		}
 	}
-	// 	gs.turn = nextUp
-	// } else {
-	// 	// gs.nextTurn()
-	// }
-	gs.turn = nextUp
+
+	return types.PID_NONE, errors.New("no valid moves")
 }
 
 func (gs *GameState) sendGameMessage(msg string) {
@@ -215,7 +215,7 @@ func (gs *GameState) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) e
 	player.socket = nil
 	player.status &= ^types.CONNECTED
 	player.connectionTimeout = utilities.InitTimer(10, func() {
-		player.status = types.NONE // Remove player from active set
+		player.status = types.JOINED // Remove player from active set
 
 		// broadcast updated player list
 		gs.socketManager.Broadcast(&types.SocketData{
@@ -224,10 +224,9 @@ func (gs *GameState) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) e
 		})
 
 		gs.sendGameMessage(fmt.Sprintf("%s has left the game", player.profile.Name))
+		fmt.Println("Disconnected player ", pid)
 	})
 	player.connectionTimeout.Start()
-
-	fmt.Println("Disconnected player ", pid)
 
 	return nil
 }
@@ -262,9 +261,15 @@ func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) e
 	}
 	player.profile.Pieces.Remove(piece)
 
-	gs.board.HasPlacement(types.Owner(pid), player.profile.Pieces)
-
-	gs.nextTurn()
+	nextUp, err := gs.nextTurn()
+	if err != nil {
+		winner, _ := gs.determineWinner()
+		gs.getPlayer(winner)
+		gs.sendGameMessage("Game over!")
+		// gs.sendGameMessage(fmt.Sprintf("%s wins!", p.profile.Name))
+	} else {
+		gs.turn = nextUp
+	}
 
 	gs.socketManager.Broadcast(&types.SocketData{
 		Type: types.PUBLIC_GAME_STATE,
@@ -275,4 +280,8 @@ func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) e
 	})
 
 	return nil
+}
+
+func (gs *GameState) determineWinner() (types.PlayerID, error) {
+	return types.PID_NONE, nil
 }
