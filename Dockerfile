@@ -30,27 +30,9 @@ COPY --from=node_build_env /tmp/frontend/dist /usr/share/nginx/html
 # Copy Go application
 COPY --from=build_env /opt/docker-gobloks-server ./docker-gobloks-server
 
-RUN echo -e \
-"server { \n"\
-" listen 7777 default_server; \n"\
-" listen [::]:7777 default_server; \n"\
-" root /usr/share/nginx/html; \n"\
-" index index.html index.htm; \n"\
-" location / { \n"\
-"  try_files \$uri \$uri/ /index.html; \n"\
-" } \n"\
-"}"\
-> /etc/nginx/http.d/default.conf
+COPY nginx.conf /etc/nginx/http.d/default.conf
 
-RUN echo -e \
-"[supervisord] \n"\
-"nodaemon=true \n"\
-"[supervisorctl] \n"\
-"[program:nginx] \n"\
-"command=/usr/sbin/nginx -g 'daemon off;' \n"\
-"[program:gobloks-server] \n"\
-"command=/opt/docker-gobloks-server -production=true \n"\
-> /etc/supervisord.conf
+COPY init.conf /etc/supervisord.conf
 
 EXPOSE 7777 8888
 
