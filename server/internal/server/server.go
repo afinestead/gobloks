@@ -16,15 +16,23 @@ func ApiMiddleware(m *manager.GameManager) gin.HandlerFunc {
 }
 
 func CORSMiddleware(production bool) gin.HandlerFunc {
+	const FRONTEND_ORIGIN string = "http://209.97.144.150"
+
 	var allowedOrigins string
 	if production {
-		allowedOrigins = "http://209.97.144.150/"
+		allowedOrigins = FRONTEND_ORIGIN
 	} else {
 		allowedOrigins = "*"
 	}
 
 	return func(c *gin.Context) {
-		fmt.Println("Origin: ", c.Request.Header.Get("Origin"))
+		if production {
+			origin := c.Request.Header.Get("Origin")
+			if origin != FRONTEND_ORIGIN {
+				c.AbortWithStatus(403)
+				return
+			}
+		}
 
 		c.Writer.Header().Set("Access-Control-Allow-Origin", allowedOrigins)
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
