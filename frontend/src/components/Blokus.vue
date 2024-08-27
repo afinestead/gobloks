@@ -2,15 +2,17 @@
   <!-- TODO:
   If a piece is rotated/flipped while hovering, the highlighting doesn't update
   -->
-  <v-container class="" fluid min-height="480" height="100%"> 
+  <v-container class="fill-height" fluid min-height="480"> 
     <!-- <v-row class="game-status">
-      <v-col>Test column!@</v-col>
+      <v-col>
+        <v-btn @click="exitGame">Leave game</v-btn>
+      </v-col>
     </v-row> -->
 
     <v-row class="gameplay-area fill-height">
-      <v-col cols="1" class="fill-height my-pieces" ref="pieceDeck">
+      <v-col cols="1" class="panel my-pieces" ref="pieceDeck">
         <piece
-          class="unplaced-piece"
+          class="mx-auto my-8"
           v-if="myPieces.length !== 0"
           v-for="(p,idx) in myPieces"
           :key="idx"
@@ -22,8 +24,8 @@
           />
       </v-col>
 
-      <v-col cols="8" class="fill-height board-view">
-        <div class="board" ref="boardRef">
+      <v-col cols="8" class="panel board-view">
+        <div class="board fill-height mx-auto" ref="boardRef">
           <div v-for="row, i in board" :key="i" class="board-row">
             <board-square
               v-for="pid, j in row"
@@ -36,12 +38,21 @@
         </div>
       </v-col>
 
-      <v-col cols="3" class="fill-height pa-0">
+      <v-col cols="2" class="panel pa-0">
         <chat
           :messages="liveChat"
           :pid="playerID"
           :players="allPlayers"
-          @submit="testLog"
+          @send="msg => ws.send(msg)"
+        />
+      </v-col>
+
+      <v-col cols="1" class="panel players">
+        <player-card
+          v-for="player, pid, idx in allPlayers"
+          :key="idx"
+          :player="player"
+          :myTurn="whoseTurn === pid"
         />
       </v-col>
     </v-row>
@@ -94,8 +105,6 @@ const myPieces = ref([]);
 const pieceDeck = ref(null);
 const allPlayers = ref([]);
 const playerID = ref(null);
-const playerColors = computed(() => allPlayers.value?.reduce((acc, p) => ({...acc, [p.pid]: p.color ? `#${p.color.toString(16).padStart(6, '0')}` : "#ffffff"}), {}));
-const playerNames = computed(() => allPlayers.value?.reduce((acc, p) => ({...acc, [p.pid]: p.name}), {}));
 const whoseTurn = ref(null);
 
 const selectedPiece = ref(null);
@@ -121,8 +130,10 @@ const IsMyOrigin = coords => IsValid(coords) && Boolean(board.value[coords[0]][c
 const IsOtherOrigin = coords => IsValid(coords) && Boolean(board.value[coords[0]][coords[1]] & (1<<30)) && SquarePID(coords) !== playerID.value;
 const OccupiedByMe = coords => IsValid(coords) && IsOccupied(coords) && SquarePID(coords) === playerID.value;
 
-function testLog(msg) {
-  ws.value.send(msg);
+function exitGame() {
+  ws.value.close();
+  store.revokeToken();
+  router.push({ path: "/join" });
 }
 
 function calculateOverlap(i, j) {
@@ -295,6 +306,7 @@ onMounted(() => {
           acc[p.pid] = {
             name: p.name,
             color: `#${p.color.toString(16).padStart(6, '0')}`,
+            status: p.status,
           };
           return acc;
         }, {});
@@ -428,44 +440,38 @@ watch(selectedPiece, (newPiece) => {
   background-color: rgba(255,255,255,0.9);
 }
 
-.game-status {}
-
-.my-pieces {
+.panel {
   border: 1px solid gray;
   border-radius: 4px;
+  height: 100%;
+}
+
+.my-pieces {
   padding: 0.5em;
   overflow-y: auto;
   overflow-x: hidden;
 }
 
 .board-view {
-  border: 1px solid gray;
-  border-radius: 4px;
   overflow-x: auto;
 }
 
 .board {
-  height: 100%;
   aspect-ratio: 1/1;
-  margin: 0 auto;
   padding: 1em;
+}
+
+.players {
+  padding: 0.5em;
+  overflow-y: auto;
 }
 
 .board-row {
   display: flex;
 }
 
-.players {
-  min-width: 12em;
-  margin-right: 1em;
-}
-
 .highlighted {
   border-color: yellow;
-}
-
-.unplaced-piece {
-  margin: 1em auto;
 }
 
 .selected-piece {

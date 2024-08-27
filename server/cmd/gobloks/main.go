@@ -16,22 +16,36 @@ func main() {
 	globalGameManager := manager.InitGameManager()
 
 	gid := globalGameManager.CreateGame(types.GameConfig{
-		Players:     1,
+		Players:     2,
 		BlockDegree: 5,
 		Density:     0.9,
+		TurnBased:   false,
 	})
 	gs, err := globalGameManager.FindGame(gid)
 	if err != nil {
 		fmt.Printf("error finding game: %s\n", err)
 		return
 	}
-	pid, err := gs.ConnectPlayer("test", 0xff00ff)
+	pid1, err := gs.ConnectPlayer("p1", 0xff00ff)
 	if err != nil {
 		fmt.Printf("error connecting player: %s\n", err)
 		return
 	}
-	err = gs.PlacePiece(pid, types.Placement{
-		Coordinates: []types.Point{{X: 10, Y: 5}},
+	pid2, err := gs.ConnectPlayer("p2", 0xffff00)
+	if err != nil {
+		fmt.Printf("error connecting player: %s\n", err)
+		return
+	}
+	err = gs.PlacePiece(pid1, types.Placement{
+		Coordinates: []types.Point{{X: 14, Y: 7}},
+	})
+	if err != nil {
+		fmt.Printf("error placing piece: %s\n", err)
+		return
+	}
+
+	err = gs.PlacePiece(pid2, types.Placement{
+		Coordinates: []types.Point{{X: 0, Y: 7}},
 	})
 	if err != nil {
 		fmt.Printf("error placing piece: %s\n", err)

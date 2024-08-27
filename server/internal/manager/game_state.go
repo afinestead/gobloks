@@ -22,22 +22,15 @@ type GameState struct {
 	turn           types.PlayerID
 	startingPieces game.PieceSet
 	socketManager  *SocketManager
+	config         types.GameConfig
 }
 
 type PlayerState struct {
-	profile PlayerProfile
-	status  PlayerStatus
-	socket  *SocketConnection
+	profile           PlayerProfile
+	status            types.PlayerStatus
+	socket            *SocketConnection
+	connectionTimeout *utilities.Timer
 }
-
-type PlayerStatus uint
-
-const (
-	NONE PlayerStatus = iota
-	JOINED
-	CONNECTED
-	DISCONNECTED
-)
 
 func InitGameState(config types.GameConfig) *GameState {
 
@@ -49,9 +42,9 @@ func InitGameState(config types.GameConfig) *GameState {
 	playerStates := make(map[types.PlayerID]*PlayerState, config.Players)
 	pids := make([]types.PlayerID, config.Players)
 
-	for ii := 0; ii < len(pids); ii++ {
+	for ii := 1; ii <= len(pids); ii++ {
 		pid := types.PlayerID(ii)
-		pids[ii] = pid
+		pids[ii-1] = pid
 		playerStates[pid] = &PlayerState{}
 	}
 
@@ -66,10 +59,16 @@ func InitGameState(config types.GameConfig) *GameState {
 		pids[0],
 		pieces,
 		InitSocketManager(len(pids)),
+		config,
 	}
 }
 
 func (gs *GameState) nextTurn() {
+	if !gs.config.TurnBased {
+		gs.turn = types.PID_NONE
+		return
+	}
+
 	nextUp := (gs.turn + 1) % types.PlayerID(len(gs.players))
 	if gs.board.HasPlacement(types.Owner(nextUp), gs.players[nextUp].profile.Pieces) {
 	}
@@ -101,13 +100,12 @@ func (gs *GameState) getPlayer(pid types.PlayerID) (*PlayerState, error) {
 func (gs *GameState) getActivePlayers() []types.PlayerConfig {
 	players := make([]types.PlayerConfig, 0, len(gs.players))
 	for pid, player := range gs.players {
-		// if player.status == CONNECTED {
 		players = append(players, types.PlayerConfig{
-			PID:   pid,
-			Name:  player.profile.Name,
-			Color: player.profile.Color,
+			PID:    pid,
+			Name:   player.profile.Name,
+			Color:  player.profile.Color,
+			Status: player.status,
 		})
-		// }
 	}
 	return players
 }
@@ -116,15 +114,16 @@ func (gs *GameState) ConnectPlayer(name string, color uint) (types.PlayerID, err
 	/* Assign the new player a PID, if there is one available */
 
 	for pid, player := range gs.players {
-		if player.status == NONE { // No player connected at this pid yet
+		if player.status == types.NONE { // No player connected at this pid yet
 			*player = PlayerState{
 				profile: PlayerProfile{
 					Name:   name,
 					Color:  color,
 					Pieces: gs.startingPieces.Copy(),
 				},
-				status: JOINED,
-				socket: nil,
+				status:            types.JOINED,
+				socket:            nil,
+				connectionTimeout: nil,
 			}
 
 			return pid, nil
@@ -138,12 +137,16 @@ func (gs *GameState) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) e
 	if err != nil {
 		return err
 	}
-	if player.status != JOINED && player.status != DISCONNECTED {
+	if player.status&types.JOINED == 0 {
 		return errors.New("invalid player status")
 	}
 
 	player.socket = gs.socketManager.Connect(socket)
-	player.status = CONNECTED
+	player.status |= types.CONNECTED
+
+	if player.connectionTimeout != nil {
+		player.connectionTimeout.Cancel()
+	}
 
 	fmt.Println("Connected player ", pid)
 
@@ -207,11 +210,22 @@ func (gs *GameState) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) e
 		}
 	}
 
+	// handle socket disconnection type events
 	gs.socketManager.Disconnect(player.socket)
 	player.socket = nil
-	player.status = DISCONNECTED
+	player.status &= ^types.CONNECTED
+	player.connectionTimeout = utilities.InitTimer(10, func() {
+		player.status = types.NONE // Remove player from active set
 
-	gs.sendGameMessage(fmt.Sprintf("%s has left the game", player.profile.Name))
+		// broadcast updated player list
+		gs.socketManager.Broadcast(&types.SocketData{
+			Type: types.PLAYER_UPDATE,
+			Data: &types.ActivePlayers{Players: gs.getActivePlayers()},
+		})
+
+		gs.sendGameMessage(fmt.Sprintf("%s has left the game", player.profile.Name))
+	})
+	player.connectionTimeout.Start()
 
 	fmt.Println("Disconnected player ", pid)
 
@@ -224,9 +238,11 @@ func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) e
 		return err
 	}
 
-	if gs.turn != pid {
+	if gs.config.TurnBased && gs.turn != pid {
 		return errors.New("not your turn")
 	}
+
+	fmt.Println(gs.board.ToString())
 
 	// convert placement to Piece/origin
 	relPoints, origin := utilities.NormalizeToOrigin(utilities.NewSet(placement.Coordinates))
@@ -245,6 +261,8 @@ func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) e
 		return err
 	}
 	player.profile.Pieces.Remove(piece)
+
+	gs.board.HasPlacement(types.Owner(pid), player.profile.Pieces)
 
 	gs.nextTurn()
 

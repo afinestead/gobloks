@@ -100,7 +100,9 @@ func (b *Board) GetRaw() [][]types.Owner {
 }
 
 func (b *Board) inbounds(square types.Point) bool {
-	return square.X >= 0 && square.X < int(b.MaxX) && square.Y >= 0 && square.Y < int(b.MaxY)
+	return (square.X >= 0 && square.X < int(b.MaxX) &&
+		square.Y >= 0 && square.Y < int(b.MaxY)) &&
+		(b.layout[square.X][square.Y]&types.RESERVED) == 0
 }
 
 func (b *Board) occupy(square types.Point, owner types.Owner) error {
@@ -204,7 +206,7 @@ func (b *Board) hasCorner(pt types.Point, owner types.Owner) bool {
 		(b.inbounds(dr) && b.occupiedByPlayer(dr, owner)))
 }
 
-func (b *Board) getFreeCorners(pt types.Point) []types.Point {
+func (b *Board) getFreeCorners(pt types.Point, owner types.Owner) []types.Point {
 	l := pt.GetAdjacent(types.LEFT)
 	r := pt.GetAdjacent(types.RIGHT)
 	u := pt.GetAdjacent(types.UP)
@@ -217,16 +219,16 @@ func (b *Board) getFreeCorners(pt types.Point) []types.Point {
 
 	vacancies := make([]types.Point, 0, 4)
 
-	if b.inbounds(ul) && b.vacant(ul) && b.vacant(u) && b.vacant(l) {
+	if b.inbounds(ul) && b.vacant(ul) && !b.occupiedByPlayer(u, owner) && !b.occupiedByPlayer(l, owner) {
 		vacancies = append(vacancies, ul)
 	}
-	if b.inbounds(ur) && b.vacant(ur) && b.vacant(u) && b.vacant(r) {
+	if b.inbounds(ur) && b.vacant(ur) && !b.occupiedByPlayer(u, owner) && !b.occupiedByPlayer(r, owner) {
 		vacancies = append(vacancies, ur)
 	}
-	if b.inbounds(dl) && b.vacant(dl) && b.vacant(d) && b.vacant(l) {
+	if b.inbounds(dl) && b.vacant(dl) && !b.occupiedByPlayer(d, owner) && !b.occupiedByPlayer(l, owner) {
 		vacancies = append(vacancies, dl)
 	}
-	if b.inbounds(dr) && b.vacant(dr) && b.vacant(d) && b.vacant(r) {
+	if b.inbounds(dr) && b.vacant(dr) && !b.occupiedByPlayer(d, owner) && !b.occupiedByPlayer(r, owner) {
 		vacancies = append(vacancies, dr)
 	}
 	return vacancies
@@ -263,10 +265,13 @@ func (b *Board) findTerritory(o types.Owner) []types.Point {
 	return territory
 }
 
-func (b *Board) findCorners(territory []types.Point) []types.Point {
+func (b *Board) findCorners(owner types.Owner) []types.Point {
+	territory := b.findTerritory(owner)
+	fmt.Println("territory ", territory)
+
 	corners := make([]types.Point, 0, b.MaxX*b.MaxY)
 	for _, pt := range territory {
-		corners = append(corners, b.getFreeCorners(pt)...)
+		corners = append(corners, b.getFreeCorners(pt, owner)...)
 	}
 
 	fmt.Println("corners ", corners)
@@ -275,32 +280,22 @@ func (b *Board) findCorners(territory []types.Point) []types.Point {
 
 func (b *Board) getPlacements(owner types.Owner, pieces PieceSet, first bool) utilities.Set[PlacementInternal] {
 	// find players corners
-	territory := b.findTerritory(owner)
-	fmt.Println("territory ", territory)
 
-	corners := make(map[types.Point][]types.Point)
-	for _, pt := range territory {
-		corners[pt] = b.getFreeCorners(pt)
-	}
-
-	// corners := b.findCorners(territory)
+	corners := b.findCorners(owner)
 
 	res := utilities.NewSet([]PlacementInternal{})
 
 	tmpPieces := pieces.Copy()
-	// tmpPieces := PieceSet{}
-	// tmpPieces.Add(PieceFromPoints(utilities.NewSet([]PieceCoord{{0, 0}, {0, 1}})))
-	// tmpPieces.Add(PieceFromPoints(utilities.NewSet[PieceCoord]([]PieceCoord{{0, 0}, {0, 1}, {1, 1}})))
-	// tmpPieces.Add(PieceFromPoints(utilities.NewSet[PieceCoord]([]PieceCoord{{0, 0}, {0, 1}, {1, 1}, {1, 0}})))
 
 	var wg sync.WaitGroup
+	var firstClose sync.Once
 	chDone := make(chan struct{})
 	chFound := make(chan PlacementInternal)
 
 	placementFinder := func(piece Piece) {
 		defer wg.Done()
 
-		for _, pt := range territory {
+		for _, pt := range corners {
 			attemptedPieces := utilities.NewSet([]Piece{}, 8)
 			for j := 0; j < 2; j++ {
 				piece.Reflect(types.X)
@@ -311,22 +306,20 @@ func (b *Board) getPlacements(owner types.Owner, pieces PieceSet, first bool) ut
 					}
 					attemptedPieces.Add(piece)
 
-					// find all piece corners
-					// for each corner, check if it's a valid placement
-					// TODO: Cache on generation
-					pieceCorners := piece.Corners()
+					// Check all possible placements
+					// TODO: Optimize?
+					piecePoints := piece.ToPoints()
+					for pp := range piecePoints {
 
-					for _, pc := range pieceCorners {
-						absPc := pt.Translate(-pc.X, -pc.Y)
-						if b.validPlacement(absPc, piece, owner) {
+						absPieceOrigin := pt.Translate(-int(pp.X), -int(pp.Y))
+						if b.validPlacement(absPieceOrigin, piece, owner) {
 							select {
 							case <-chDone:
 								return
 							default:
-								chFound <- PlacementInternal{piece, absPc}
+								chFound <- PlacementInternal{piece, absPieceOrigin}
 								if first {
-									close(chDone)
-									return
+									firstClose.Do(func() { close(chDone) })
 								}
 							}
 						}
@@ -344,42 +337,34 @@ func (b *Board) getPlacements(owner types.Owner, pieces PieceSet, first bool) ut
 	var resultGroup sync.WaitGroup
 	resultGroup.Add(1)
 	go func() {
+		defer resultGroup.Done()
 		for found := range chFound {
 			res.Add(found)
 		}
-		resultGroup.Done()
 	}()
 
 	wg.Wait()
 	close(chFound)
 	resultGroup.Wait()
 
-	// for r := range res {
-	// 	fmt.Println(r.origin, r.piece.ToString())
-	// }
-
 	return res
 }
 
 func (b *Board) HasPlacement(owner types.Owner, pieces PieceSet) bool {
-	// TODO
-	return true
-	// fmt.Println(b.ToString())
+	plc := b.getPlacements(owner, pieces, true)
 
-	// plc := b.getPlacements(owner, pieces, false)
+	for p := range plc {
+		fmt.Println(p.origin, p.piece.ToString())
+		// b.Place(p.origin, p.piece, owner)
+		// fmt.Println(b.ToString())
+		break
+		// return true
+	}
+
 	// fmt.Println("placements", plc.Size())
-
-	// for p := range plc {
-	// 	fmt.Println(p.origin, p.piece.ToString())
-	// 	// b.Place(p.origin, p.piece, owner)
-	// 	// fmt.Println(b.ToString())
-	// 	// return true
-	// }
-
-	// return plc.Size() > 0
+	return plc.Size() > 0
 }
 
-func (b *Board) GetPlacements(owner types.Owner, pieces PieceSet) []types.Placement {
-	return []types.Placement{}
-	// return b.getPlacements(owner, pieces, false)
+func (b *Board) GetPlacements(owner types.Owner, pieces PieceSet) utilities.Set[PlacementInternal] {
+	return b.getPlacements(owner, pieces, false)
 }

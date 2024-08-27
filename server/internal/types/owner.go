@@ -1,7 +1,6 @@
 package types
 
 import (
-	"fmt"
 	"strconv"
 )
 
@@ -24,7 +23,6 @@ func (o Owner) ToString() string {
 	} else if o&VACANT != 0 && o&ORIGIN == 0 {
 		s = " "
 	} else {
-		fmt.Println(int(o & PLAYER_MASK))
 		s = strconv.Itoa(int(o & PLAYER_MASK))
 	}
 

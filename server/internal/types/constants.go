@@ -13,6 +13,15 @@ const (
 	RESERVED    Owner = (1 << 31)
 )
 
+const PID_NONE PlayerID = 0
+
+const (
+	NONE      PlayerStatus = 0x0
+	JOINED    PlayerStatus = 0x1 // has joined the game
+	CONNECTED PlayerStatus = 0x2 // has socket connection
+	ACTIVE    PlayerStatus = 0x4 // has playable pieces
+)
+
 const (
 	UP Direction = iota
 	DOWN

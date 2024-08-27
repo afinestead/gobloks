@@ -6,6 +6,7 @@ type Owner uint32
 type PlayerID uint16
 type GameID string
 type SocketDataType uint32
+type PlayerStatus uint
 
 type SocketData struct {
 	Type SocketDataType `json:"type"`
@@ -25,12 +26,14 @@ type GameConfig struct {
 	Players     uint    `json:"players" binding:"required,gte=1,lte=65536"`
 	BlockDegree uint8   `json:"degree" binding:"required,gte=1,lte=8"`
 	Density     float64 `json:"density"`
+	TurnBased   bool    `json:"turns"`
 }
 
 type PlayerConfig struct {
-	PID   PlayerID `json:"pid"`
-	Name  string   `json:"name" binding:"required,max=32"`
-	Color uint     `json:"color" binding:"required,gt=0,lte=16777215"`
+	PID    PlayerID     `json:"pid"`
+	Name   string       `json:"name" binding:"required,max=32"`
+	Color  uint         `json:"color" binding:"required,gt=0,lte=16777215"`
+	Status PlayerStatus `json:"status"`
 }
 
 type ChatMessage struct {

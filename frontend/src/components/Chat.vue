@@ -41,7 +41,7 @@
 import { ref } from 'vue'
 import { MessageType } from '@/api';
 
-const emit = defineEmits(["submit"]);
+const emit = defineEmits(["send"]);
 
 const props = defineProps({
   pid: Number,
@@ -60,7 +60,7 @@ function sendMessage() {
   if (myChat.value.length) {
     
     emit(
-      "submit",
+      "send",
       JSON.stringify({
           type: MessageType.ChatMesssage,
           data: {origin: props.pid, message: myChat.value},
@@ -76,7 +76,7 @@ function sendMessage() {
   height: 100%;
   display: flex;
   flex-direction: column;
-  font-size: x-large;
+  font-size: medium;
 }
 
 .live-chat {
@@ -84,8 +84,6 @@ function sendMessage() {
   flex: 1;
   flex-direction: column-reverse;
   padding: 0.5em;
-  border: 1px solid grey;
-  border-radius: 4px;
   overflow-y: auto;
 }
 </style>

@@ -1,32 +1,36 @@
 <template>
-  <div class="player-card-container">
-    <v-card class="player-card" :variant="myTurn ? 'outlined': 'plain'">
-      <span class="player-name text-h6" :style="{color: color}">
-        <slot name="prepend"/>
-        {{ name }}
-        <slot name="append"/>
-      </span>
-    </v-card>
-  </div>
+  <v-card
+    v-if="player.name"
+    :title="player.name"
+    class="mx-auto my-5"
+    :color="`${player.color}`"
+    :disabled="connected"
+  >
+    <template v-slot:prepend>
+      <v-icon :class="connected ? 'connected' : 'disconnected'" size="x-small">mdi-checkbox-blank-circle</v-icon>
+    </template>
+  </v-card>
   
 </template>
 
 <script setup>
+import { computed } from 'vue';
 
-defineProps({
-  name: String,
-  color: String,
+const props = defineProps({
+  player: Object,
   myTurn: Boolean,
 });
+
+const connected = computed(() => props.player.status);
 
 </script>
 
 <style scoped>
-.player-card {
-  margin: 1em 0;
+.connected {
+  color: green;
 }
 
-.player-name {
-
+.disconnected {
+  visibility: hidden;
 }
 </style>
