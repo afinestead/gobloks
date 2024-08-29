@@ -21,7 +21,7 @@
 
 <script setup>
 
-import { computed, defineExpose, ref, onMounted, watch } from 'vue';
+import { computed, ref, onMounted, watch } from 'vue';
 
 const props = defineProps({
   squareSize: {

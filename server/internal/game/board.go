@@ -2,6 +2,7 @@ package game
 
 import (
 	"errors"
+	"fmt"
 	"gobloks/internal/types"
 	"gobloks/internal/utilities"
 	"math"
@@ -227,13 +228,10 @@ func (b *Board) Place(origin types.Point, p Piece, owner types.Owner) (bool, err
 func (b *Board) HasPlacement(owner types.Owner, pieces PieceSet) bool {
 	plc := b.getPlacements(owner, pieces, true)
 
-	// for p := range plc {
-	// 	fmt.Println(p.origin, p.piece.ToString())
-	// 	// b.Place(p.origin, p.piece, owner)
-	// 	// fmt.Println(b.ToString())
-	// 	break
-	// 	// return true
-	// }
+	for p := range plc {
+		fmt.Println(p.origin, p.piece.ToString())
+		break
+	}
 
 	// fmt.Println("placements", plc.Size())
 	return plc.Size() > 0

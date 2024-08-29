@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"gobloks/internal/game"
 	"gobloks/internal/manager"
 	"gobloks/internal/server"
 	"gobloks/internal/types"
+	"gobloks/internal/utilities"
 )
 
 func main() {
@@ -16,7 +18,7 @@ func main() {
 	globalGameManager := manager.InitGameManager()
 
 	gid := globalGameManager.CreateGame(types.GameConfig{
-		Players:     2,
+		Players:     1,
 		BlockDegree: 5,
 		Density:     0.9,
 		TurnBased:   false,
@@ -31,26 +33,61 @@ func main() {
 		fmt.Printf("error connecting player: %s\n", err)
 		return
 	}
-	pid2, err := gs.AddPlayer("p2", 0xffff00)
-	if err != nil {
-		fmt.Printf("error connecting player: %s\n", err)
-		return
-	}
+	// pid2, err := gs.AddPlayer("p2", 0xffff00)
+	// if err != nil {
+	// 	fmt.Printf("error connecting player: %s\n", err)
+	// 	return
+	// }
+
 	err = gs.PlacePiece(pid1, types.Placement{
-		Coordinates: []types.Point{{X: 14, Y: 7}},
+		Coordinates: []types.Point{{X: 10, Y: 5}},
 	})
 	if err != nil {
 		fmt.Printf("error placing piece: %s\n", err)
 		return
 	}
 
-	err = gs.PlacePiece(pid2, types.Placement{
-		Coordinates: []types.Point{{X: 0, Y: 7}},
-	})
-	if err != nil {
-		fmt.Printf("error placing piece: %s\n", err)
-		return
+	plc := types.Placement{
+		Coordinates: []types.Point{{X: 3, Y: 15}, {X: 3, Y: 16}, {X: 3, Y: 17}, {X: 4, Y: 17}, {X: 4, Y: 18}, {X: 5, Y: 18}},
 	}
+	fmt.Println(plc)
+	relPoints, origin := utilities.NormalizeToOrigin(utilities.NewSet(plc.Coordinates))
+	relCoords := utilities.NewSet([]game.PieceCoord{}, relPoints.Size())
+	for coord := range relPoints {
+		relCoords.Add(game.PieceCoord{X: uint8(coord.X), Y: uint8(coord.Y)})
+	}
+
+	piece := game.PieceFromPoints(relCoords)
+	fmt.Println(origin, piece.ToString())
+
+	pieceCoords := piece.ToPoints()
+	for pt := range pieceCoords {
+		abs_pt := origin.Translate(int(pt.X), int(pt.Y))
+		fmt.Println(abs_pt)
+	}
+
+	// err = gs.PlacePiece(pid1, types.Placement{
+	// 	Coordinates: []types.Point{{X: 9, Y: 4}, {X: 9, Y: 6}},
+	// })
+	// if err != nil {
+	// 	fmt.Printf("error placing piece: %s\n", err)
+	// 	return
+	// }
+	// err = gs.PlacePiece(pid1, types.Placement{
+	// 	Coordinates: []types.Point{{X: 14, Y: 7}},
+	// })
+	// if err != nil {
+	// 	fmt.Printf("error placing piece: %s\n", err)
+	// 	return
+	// }
+
+	// err = gs.PlacePiece(pid2, types.Placement{
+	// 	Coordinates: []types.Point{{X: 0, Y: 7}},
+	// })
+	// if err != nil {
+	// 	fmt.Printf("error placing piece: %s\n", err)
+	// 	return
+	// }
 
 	// p := game.PieceFromPoints(utilities.NewSet([]game.PieceCoord{{X: 0, Y: 0}, {X: 0, Y: 1}}))
 	// p := game.PieceFromPoints(utilities.NewSet([]game.PieceCoord{{X: 0, Y: 0}, {X: 0, Y: 1}, {X: 1, Y: 1}}))

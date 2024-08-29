@@ -1,7 +1,6 @@
 package utilities
 
 import (
-	"fmt"
 	"sync"
 	"time"
 )
@@ -52,7 +51,6 @@ func (t *Timer) Pause() {
 func (t *Timer) Start() {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
-	fmt.Println(t.remaining)
 
 	t.start = time.Now()
 	t.timer = time.NewTimer(t.remaining)

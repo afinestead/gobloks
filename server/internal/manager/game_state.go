@@ -85,7 +85,6 @@ func (gs *GameState) nextTurn() (types.PlayerID, error) {
 	defer gs.playersLock.Unlock()
 	for i := 0; i < len(gs.players); i++ {
 		nextUp := types.PlayerID((int(gs.turn)+i)%len(gs.players)) + 1
-		fmt.Println("Checking player ", nextUp)
 		if gs.board.HasPlacement(types.Owner(nextUp), gs.players[nextUp].profile.Pieces) {
 			return nextUp, nil
 		}
@@ -129,9 +128,7 @@ func (gs *GameState) sendPlayerList() {
 }
 
 func (gs *GameState) hasPlayerStatus(player *PlayerState, status types.PlayerStatus) bool {
-	fmt.Println("checking for player status ", status)
 	player.mtx.Lock()
-	fmt.Println("locked ")
 	defer player.mtx.Unlock()
 	return player.status&status != 0
 }
@@ -193,13 +190,9 @@ func (gs *GameState) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) e
 		return err
 	}
 
-	fmt.Println(player)
-
 	if !gs.hasPlayerStatus(player, JOINED) {
 		return errors.New("invalid player status")
 	}
-
-	fmt.Println("player status ok")
 
 	player.socket = gs.socketManager.Connect(socket)
 	gs.setPlayerStatus(player, CONNECTED)

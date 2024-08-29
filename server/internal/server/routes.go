@@ -62,8 +62,6 @@ func joinGame(c *gin.Context) {
 }
 
 func placePiece(c *gin.Context) {
-	fmt.Println("placing")
-
 	g := c.MustGet("manager").(*manager.GameManager)
 	gid := c.MustGet("gid").(types.GameID)
 	gs, err := g.FindGame(gid)

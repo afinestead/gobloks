@@ -1,7 +1,11 @@
 <template>
-  <div class="bkgnd">
+  <v-app fluid class="bkgnd fill-height">
+    <v-toolbar app color="primary" dark>
+      <v-toolbar-title>GoBloks</v-toolbar-title>
+    </v-toolbar>  
+   
     <router-view></router-view>
-  </div>
+  </v-app>
 </template>
 
 <script setup>
@@ -20,12 +24,10 @@ onBeforeMount(() => {
 
 #app {
   height: 100vh;
-  padding: 2em;
-  overflow: auto;
 }
 
 .bkgnd {
-  height: 100%;
+  background-color: #ffffff50;
 }
 
 #app:before {

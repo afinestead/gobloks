@@ -2,15 +2,10 @@
   <!-- TODO:
   If a piece is rotated/flipped while hovering, the highlighting doesn't update
   -->
-  <v-container class="fill-height" fluid min-height="480"> 
-    <!-- <v-row class="game-status">
-      <v-col>
-        <v-btn @click="exitGame">Leave game</v-btn>
-      </v-col>
-    </v-row> -->
+  <v-container class="fill-height" fluid min-height="480">
 
     <v-row class="gameplay-area fill-height">
-      <v-col cols="1" class="panel my-pieces" ref="pieceDeck">
+      <v-col cols="1" class="panel my-pieces bordered" ref="pieceDeck">
         <piece
           class="mx-auto my-8"
           v-if="myPieces.length !== 0"
@@ -24,7 +19,7 @@
           />
       </v-col>
 
-      <v-col cols="7" class="panel board-view">
+      <v-col cols="9" class="panel board-view bordered">
         <div class="board fill-height mx-auto" ref="boardRef">
           <div v-for="row, i in board" :key="i" class="board-row">
             <board-square
@@ -38,16 +33,7 @@
         </div>
       </v-col>
 
-      <v-col cols="2" class="panel pa-0">
-        <chat
-          :messages="liveChat"
-          :pid="playerID"
-          :players="allPlayers"
-          @send="msg => ws.send(msg)"
-        />
-      </v-col>
-
-      <v-col cols="2" class="panel players">
+      <v-col cols="2" class="panel players bordered">
         <player-card
           v-for="player, idx in allPlayers"
           :key="idx"
@@ -78,6 +64,26 @@
       @change="nextTick(() => snapPieceToCursor())"
     />
 
+    <v-expansion-panels v-model="chatPanel" class="chat-drawer bordered">
+      <v-expansion-panel expand-icon="mdi-chevron-up" collapse-icon="mdi-chevron-down">
+        <v-expansion-panel-title static color="primary">
+          <v-badge v-if="unreadMessages" color="error" :content="unreadMessages > 9 ? `9+` : unreadMessages">
+            <v-icon>mdi-email-outline</v-icon>
+          </v-badge>
+          <v-icon v-else>mdi-email-outline</v-icon>
+          <span class="chat-title">Chat</span>
+        </v-expansion-panel-title>
+        <v-expansion-panel-text class="chat-box-expansion">
+          <chat
+            :messages="liveChat"
+            :pid="playerID"
+            :players="allPlayers"
+            @send="msg => ws.send(msg)"
+          />
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+    </v-expansion-panels>
+
   </v-container>
 
  
@@ -85,7 +91,7 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, ref, reactive, computed, watch } from 'vue'
+import { nextTick, onMounted, ref, computed, watch } from 'vue'
 import BoardSquare from './BoardSquare.vue';
 import Chat from './Chat.vue'
 import Piece from './Piece.vue'
@@ -99,8 +105,6 @@ import { MessageType } from '@/api';
 const store = useStore();
 const router = useRouter()
 const squareSize = ref(0);
-
-const gameStatus = ref(null);
 
 const board = ref([]);
 const boardSize = ref(0);
@@ -121,6 +125,9 @@ const offsetY = ref(null);
 
 const ws = ref(null);
 
+const chatPanel = ref(0);
+const chatOpen = ref(true);
+const unreadMessages = ref(0);
 const liveChat = ref([]);
 
 // const boardHTML = ref([]);
@@ -141,102 +148,102 @@ function exitGame() {
 }
 
 function calculateOverlap(i, j) {
-if (selectedPiece.value) {
+  if (selectedPiece.value) {
 
-  const nullCoords = [null,null];
+    const nullCoords = [null,null];
 
-  const GetNeighborCoords = (dir, [x, y]) => {
-    if (x === null || y === null) {
-      return nullCoords;
-    }
-    switch (dir) {
-      case "up": return x > 0 ? [x-1,y] : nullCoords;
-      case "down": return x < boardSize.value-1 ? [x+1,y] : nullCoords;
-      case "left": return y > 0 ? [x,y-1] : nullCoords;
-      case "right": return y < boardSize.value-1 ? [x,y+1] : nullCoords;
-      default: return nullCoords;
-    }
-  }
-
-  const GetOverlapCoords = () => {
-    let validOverlap = [];
-    for (const c of selectedPieceRef.value.blocksInternal) {
-      const overlapX = i + c.x - selectedPiece.value.origin[0];
-      const overlapY = j + c.y - selectedPiece.value.origin[1];
-
-      if (
-        overlapX >= 0 && overlapX < boardSize.value &&
-        overlapY >= 0 && overlapY < boardSize.value
-      ) {
-        validOverlap.push([overlapX, overlapY]);
-      } else {
-        return null;
+    const GetNeighborCoords = (dir, [x, y]) => {
+      if (x === null || y === null) {
+        return nullCoords;
+      }
+      switch (dir) {
+        case "up": return x > 0 ? [x-1,y] : nullCoords;
+        case "down": return x < boardSize.value-1 ? [x+1,y] : nullCoords;
+        case "left": return y > 0 ? [x,y-1] : nullCoords;
+        case "right": return y < boardSize.value-1 ? [x,y+1] : nullCoords;
+        default: return nullCoords;
       }
     }
-    return validOverlap;
-  }
 
-  const HasSideNeighbor = coords => {
-    if (coords == nullCoords) {
-      return false;
-    }
-    const leftCoords = GetNeighborCoords("left", coords);
-    const rightCoords = GetNeighborCoords("right", coords);
-    const downCoords = GetNeighborCoords("down", coords);
-    const upCoords = GetNeighborCoords("up", coords);
+    const GetOverlapCoords = () => {
+      let validOverlap = [];
+      for (const c of selectedPieceRef.value.blocksInternal) {
+        const overlapX = i + c.x - selectedPiece.value.origin[0];
+        const overlapY = j + c.y - selectedPiece.value.origin[1];
 
-    return (
-      (leftCoords !== nullCoords && OccupiedByMe(leftCoords)) ||
-      (rightCoords !== nullCoords && OccupiedByMe(rightCoords)) ||
-      (downCoords !== nullCoords && OccupiedByMe(downCoords)) ||
-      (upCoords !== nullCoords && OccupiedByMe(upCoords))
-    );
-  }
-
-
-  const HasCornerNeighbor = coords => {
-    if (coords == nullCoords) {
-      return false;
-    }
-    const leftUpCoords = GetNeighborCoords("left", GetNeighborCoords("up", coords));
-    const leftDownCoords = GetNeighborCoords("left", GetNeighborCoords("down", coords));
-    const rightUpCoords = GetNeighborCoords("right", GetNeighborCoords("up", coords));
-    const rightDownCoords = GetNeighborCoords("right", GetNeighborCoords("down", coords));
-
-    return (
-      (leftUpCoords !== nullCoords && OccupiedByMe(leftUpCoords)) ||
-      (leftDownCoords !== nullCoords && OccupiedByMe(leftDownCoords)) ||
-      (rightUpCoords !== nullCoords && OccupiedByMe(rightUpCoords)) ||
-      (rightDownCoords !== nullCoords && OccupiedByMe(rightDownCoords))
-    );
-  }
-  
-  const overlapCoords = GetOverlapCoords();
-
-  // TODO: be smarter about recomputing css
-  clearHighlight();
-
-  if (
-    overlapCoords !== null &&
-    overlapCoords.every(coords => !IsOccupied(coords)) &&
-    overlapCoords.every(coords => IsValid(coords)) &&
-    overlapCoords.every(coords => !HasSideNeighbor(coords)) &&
-    overlapCoords.every(coords => !IsOtherOrigin(coords)) &&
-    overlapCoords.some(coords => HasCornerNeighbor(coords) || IsMyOrigin(coords))
-  ) {
-    // This is a valid placement
-
-    for (const [x,y] of overlapCoords) {
-      const sq = boardHTML.value[x][y];
-      sq.classList.add("highlighted");
-
+        if (
+          overlapX >= 0 && overlapX < boardSize.value &&
+          overlapY >= 0 && overlapY < boardSize.value
+        ) {
+          validOverlap.push([overlapX, overlapY]);
+        } else {
+          return null;
+        }
+      }
+      return validOverlap;
     }
 
-    selectedPieceOverlap.value = overlapCoords;
-    return;
+    const HasSideNeighbor = coords => {
+      if (coords == nullCoords) {
+        return false;
+      }
+      const leftCoords = GetNeighborCoords("left", coords);
+      const rightCoords = GetNeighborCoords("right", coords);
+      const downCoords = GetNeighborCoords("down", coords);
+      const upCoords = GetNeighborCoords("up", coords);
+
+      return (
+        (leftCoords !== nullCoords && OccupiedByMe(leftCoords)) ||
+        (rightCoords !== nullCoords && OccupiedByMe(rightCoords)) ||
+        (downCoords !== nullCoords && OccupiedByMe(downCoords)) ||
+        (upCoords !== nullCoords && OccupiedByMe(upCoords))
+      );
+    }
+
+
+    const HasCornerNeighbor = coords => {
+      if (coords == nullCoords) {
+        return false;
+      }
+      const leftUpCoords = GetNeighborCoords("left", GetNeighborCoords("up", coords));
+      const leftDownCoords = GetNeighborCoords("left", GetNeighborCoords("down", coords));
+      const rightUpCoords = GetNeighborCoords("right", GetNeighborCoords("up", coords));
+      const rightDownCoords = GetNeighborCoords("right", GetNeighborCoords("down", coords));
+
+      return (
+        (leftUpCoords !== nullCoords && OccupiedByMe(leftUpCoords)) ||
+        (leftDownCoords !== nullCoords && OccupiedByMe(leftDownCoords)) ||
+        (rightUpCoords !== nullCoords && OccupiedByMe(rightUpCoords)) ||
+        (rightDownCoords !== nullCoords && OccupiedByMe(rightDownCoords))
+      );
+    }
+    
+    const overlapCoords = GetOverlapCoords();
+
+    // TODO: be smarter about recomputing css
+    clearHighlight();
+
+    if (
+      overlapCoords !== null &&
+      overlapCoords.every(coords => !IsOccupied(coords)) &&
+      overlapCoords.every(coords => IsValid(coords)) &&
+      overlapCoords.every(coords => !HasSideNeighbor(coords)) &&
+      overlapCoords.every(coords => !IsOtherOrigin(coords)) &&
+      overlapCoords.some(coords => HasCornerNeighbor(coords) || IsMyOrigin(coords))
+    ) {
+      // This is a valid placement
+
+      for (const [x,y] of overlapCoords) {
+        const sq = boardHTML.value[x][y];
+        sq.classList.add("highlighted");
+
+      }
+
+      selectedPieceOverlap.value = overlapCoords;
+      return;
+    }
   }
-}
-selectedPieceOverlap.value = null;
+  selectedPieceOverlap.value = null;
 }
 
 function onResize() {
@@ -287,6 +294,9 @@ onMounted(() => {
     switch (msg.type) {
 
       case MessageType.ChatMesssage:
+        if (!chatOpen.value) {
+          unreadMessages.value += 1;
+        }
         liveChat.value.unshift({
           origin: msg.data.origin,
           msg: msg.data.message,
@@ -334,7 +344,6 @@ onMounted(() => {
 });
 
 function snapPieceToCursor() {
-  // debugger; // eslint-disable-line
   // Find left most block
   let x = Infinity;
   let y = Infinity;
@@ -437,6 +446,14 @@ watch(selectedPiece, (newPiece) => {
     clearHighlight()
   }
 });
+
+watch(chatPanel, (opened) => {
+  chatOpen.value = opened === 0;
+  if (chatOpen.value) {
+    unreadMessages.value = 0;
+  }
+});
+
 </script>
 
 <style scoped>
@@ -445,9 +462,28 @@ watch(selectedPiece, (newPiece) => {
   background-color: rgba(255,255,255,0.9);
 }
 
-.panel {
+.bordered {
   border: 1px solid gray;
   border-radius: 4px;
+}
+
+.chat-drawer {
+  position: absolute;
+  bottom: 0;
+  right: 12px;
+  width: 344px;
+}
+
+.chat-box-expansion > * {
+  padding: 0;
+  height: 300px;
+}
+
+.chat-title {
+  margin-left: 2em;
+}
+
+.panel {
   height: 100%;
 }
 
