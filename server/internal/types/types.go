@@ -27,6 +27,8 @@ type GameConfig struct {
 	BlockDegree uint8   `json:"degree" binding:"required,gte=1,lte=8"`
 	Density     float64 `json:"density"`
 	TurnBased   bool    `json:"turns"`
+	TimeControl uint    `json:"timeSeconds"`
+	TimeBonus   uint    `json:"timeBonus"`
 }
 
 type PlayerConfig struct {
@@ -34,15 +36,12 @@ type PlayerConfig struct {
 	Name   string       `json:"name" binding:"required,max=32"`
 	Color  uint         `json:"color" binding:"required,gt=0,lte=16777215"`
 	Status PlayerStatus `json:"status"`
+	Time   uint         `json:"timeMs"`
 }
 
 type ChatMessage struct {
 	Origin  Owner  `json:"origin"`
 	Message string `json:"message"`
-}
-
-type ActivePlayers struct {
-	Players []PlayerConfig `json:"players"`
 }
 
 type PublicGameState struct {

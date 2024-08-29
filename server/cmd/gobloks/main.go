@@ -26,12 +26,12 @@ func main() {
 		fmt.Printf("error finding game: %s\n", err)
 		return
 	}
-	pid1, err := gs.ConnectPlayer("p1", 0xff00ff)
+	pid1, err := gs.AddPlayer("p1", 0xff00ff)
 	if err != nil {
 		fmt.Printf("error connecting player: %s\n", err)
 		return
 	}
-	pid2, err := gs.ConnectPlayer("p2", 0xffff00)
+	pid2, err := gs.AddPlayer("p2", 0xffff00)
 	if err != nil {
 		fmt.Printf("error connecting player: %s\n", err)
 		return

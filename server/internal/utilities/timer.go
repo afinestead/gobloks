@@ -1,24 +1,32 @@
 package utilities
 
 import (
+	"fmt"
+	"sync"
 	"time"
 )
 
 type Timer struct {
-	timer    *time.Timer
-	duration time.Duration
-	start    time.Time
-	elapsed  time.Duration
-	callback func()
+	timer        *time.Timer
+	remaining    time.Duration
+	start        time.Time
+	bonus        time.Duration
+	callback     func(args ...any)
+	callbackArgs []any
+	expired      bool
+	mtx          sync.Mutex
 }
 
-func InitTimer(d time.Duration, callback func()) *Timer {
+func InitTimer(ms, bonus uint, callback func(args ...any), args ...any) *Timer {
 	return &Timer{
-		timer:    nil,
-		duration: d,
-		start:    time.Unix(0, 0),
-		elapsed:  0,
-		callback: callback,
+		timer:        nil,
+		remaining:    time.Duration(ms) * time.Millisecond,
+		start:        time.Unix(0, 0),
+		bonus:        time.Duration(bonus) * time.Millisecond,
+		callback:     callback,
+		callbackArgs: args,
+		expired:      false,
+		mtx:          sync.Mutex{},
 	}
 }
 
@@ -27,21 +35,48 @@ func (t *Timer) Cancel() bool {
 }
 
 func (t *Timer) Pause() {
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
+	if t.timer == nil { // for initial start
+		return
+	}
+
 	if !t.timer.Stop() {
 		<-t.timer.C
 	}
-	t.elapsed = time.Since(t.start)
+	// Add bonus time when pausing
+	elapsed := (time.Since(t.start) - t.bonus)
+	t.remaining -= elapsed
 }
 
 func (t *Timer) Start() {
-	t.duration -= t.elapsed
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
+	fmt.Println(t.remaining)
+
 	t.start = time.Now()
-	t.timer = time.NewTimer(t.duration * time.Second)
+	t.timer = time.NewTimer(t.remaining)
 
 	go func() {
 		<-t.timer.C // Wait for the timer to expire
+		t.mtx.Lock()
+		t.remaining = 0
+		t.expired = true
+		t.mtx.Unlock()
 		if t.callback != nil {
-			t.callback()
+			t.callback(t.callbackArgs...)
 		}
 	}()
+}
+
+func (t *Timer) TimeLeftMs() uint {
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
+	return uint(t.remaining / time.Millisecond)
+}
+
+func (t *Timer) Expired() bool {
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
+	return t.expired
 }

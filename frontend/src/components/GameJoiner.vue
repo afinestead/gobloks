@@ -65,11 +65,12 @@
 
 <script setup>
 import { onBeforeMount, onMounted, ref } from "vue";
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useStore } from "@/stores/store"
 
 
 const router = useRouter();
+const route = useRoute();
 const store = useStore();
 
 function randomColor() {
@@ -77,7 +78,7 @@ const inRange = () => Math.floor(Math.random() * 0xff).toString(16).padStart(2, 
 return `#${inRange()}${inRange()}${inRange()}`;
 }
 
-const gameId = ref("");
+const gameId = ref(route.query.game || "");
 const playerName = ref("");
 const playerColor = ref(randomColor());
 
@@ -86,6 +87,8 @@ const joining = ref(false);
 const errorMessage = ref("");
 
 onBeforeMount(() => {
+  console.log(route.query);
+  
 if (store.token) {
   router.push({ path: "/play" });
 }

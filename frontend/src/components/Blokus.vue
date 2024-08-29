@@ -24,7 +24,7 @@
           />
       </v-col>
 
-      <v-col cols="8" class="panel board-view">
+      <v-col cols="7" class="panel board-view">
         <div class="board fill-height mx-auto" ref="boardRef">
           <div v-for="row, i in board" :key="i" class="board-row">
             <board-square
@@ -47,13 +47,17 @@
         />
       </v-col>
 
-      <v-col cols="1" class="panel players">
+      <v-col cols="2" class="panel players">
         <player-card
-          v-for="player, pid, idx in allPlayers"
+          v-for="player, idx in allPlayers"
           :key="idx"
           :player="player"
-          :myTurn="whoseTurn === pid"
-        />
+          :myTurn="whoseTurn === player.pid"
+        >
+          <template v-slot:timer>
+            <timer :time="player.time"/>
+          </template>
+        </player-card>
       </v-col>
     </v-row>
 
@@ -86,7 +90,7 @@ import BoardSquare from './BoardSquare.vue';
 import Chat from './Chat.vue'
 import Piece from './Piece.vue'
 import PlayerCard from './PlayerCard.vue'
-import Players from './Players.vue'
+import Timer from './Timer.vue'
 import { useRouter } from 'vue-router';
 import { useStore } from '@/stores/store';
 import { MessageType } from '@/api';
@@ -302,11 +306,13 @@ onMounted(() => {
         break;
       
       case MessageType.PlayerUpdate:
-        allPlayers.value = msg.data.players.reduce((acc, p) => {
+        allPlayers.value = msg.data.reduce((acc, p) => {
           acc[p.pid] = {
+            pid: p.pid,
             name: p.name,
             color: `#${p.color.toString(16).padStart(6, '0')}`,
             status: p.status,
+            time: p.timeMs,
           };
           return acc;
         }, {});
@@ -431,7 +437,6 @@ watch(selectedPiece, (newPiece) => {
     clearHighlight()
   }
 });
-
 </script>
 
 <style scoped>

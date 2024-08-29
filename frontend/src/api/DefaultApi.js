@@ -9,25 +9,25 @@ export default class DefaultApi {
     this.apiClient = apiClient || ApiClient.instance;
   }
 
-  getCurrentPlayer(accessToken) {
-      const postBody = null;
+  createGame(config) {
+    const postBody = config;
+    
+    const pathParams = {};  
+    const queryParams = {};
+    const headerParams = {};
+    const formParams = {};
 
-      const pathParams = {};
-      const queryParams = {};
-      const headerParams = {'Access-Token': accessToken};
-      const formParams = {};
+    const authNames = [];
+    const contentTypes = [];
+    const accepts = ['application/json'];
 
-      const authNames = [];
-      const contentTypes = [];
-      const accepts = ['application/json'];
-
-      return this.apiClient.callApi(
-        '/player', 'GET',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, PlayerProfile, null
-      );
+    return this.apiClient.callApi(
+      '/create', 'POST',
+      pathParams, queryParams, headerParams, formParams, postBody,
+      authNames, contentTypes, accepts, String, null
+    );
   }
-
+  
   joinGame(gameId, playerName, playerColor) {
     const postBody = {"name": playerName, "color": playerColor};
     

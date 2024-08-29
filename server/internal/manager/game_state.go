@@ -6,8 +6,17 @@ import (
 	"gobloks/internal/game"
 	"gobloks/internal/types"
 	"gobloks/internal/utilities"
+	"sync"
 
 	"github.com/gorilla/websocket"
+)
+
+const (
+	NONE      types.PlayerStatus = 0x0
+	JOINED    types.PlayerStatus = 0x1 // has joined the game
+	CONNECTED types.PlayerStatus = 0x2 // has socket connection
+	ACTIVE    types.PlayerStatus = 0x4 // has playable pieces
+	TIMED_OUT types.PlayerStatus = 0x8 // has timed out
 )
 
 type PlayerProfile struct {
@@ -23,13 +32,16 @@ type GameState struct {
 	startingPieces game.PieceSet
 	socketManager  *SocketManager
 	config         types.GameConfig
+	playersLock    *sync.Mutex
 }
 
 type PlayerState struct {
-	profile           PlayerProfile
-	status            types.PlayerStatus
-	socket            *SocketConnection
-	connectionTimeout *utilities.Timer
+	profile     PlayerProfile
+	status      types.PlayerStatus
+	socket      *SocketConnection
+	playerTimer *utilities.Timer
+	// connectionTimeout *utilities.Timer
+	mtx *sync.Mutex
 }
 
 func InitGameState(config types.GameConfig) *GameState {
@@ -45,7 +57,7 @@ func InitGameState(config types.GameConfig) *GameState {
 	for ii := 1; ii <= len(pids); ii++ {
 		pid := types.PlayerID(ii)
 		pids[ii-1] = pid
-		playerStates[pid] = &PlayerState{}
+		playerStates[pid] = nil
 	}
 
 	board, err := game.NewBoard(pids, setPixels, config.Density)
@@ -60,6 +72,7 @@ func InitGameState(config types.GameConfig) *GameState {
 		pieces,
 		InitSocketManager(len(pids)),
 		config,
+		&sync.Mutex{},
 	}
 }
 
@@ -68,8 +81,10 @@ func (gs *GameState) nextTurn() (types.PlayerID, error) {
 		return types.PID_NONE, nil
 	}
 
-	for i := gs.turn; i < gs.turn+types.PlayerID(len(gs.players)); i++ {
-		nextUp := ((i + 1) % types.PlayerID(len(gs.players))) + 1
+	gs.playersLock.Lock()
+	defer gs.playersLock.Unlock()
+	for i := 0; i < len(gs.players); i++ {
+		nextUp := types.PlayerID((int(gs.turn)+i)%len(gs.players)) + 1
 		fmt.Println("Checking player ", nextUp)
 		if gs.board.HasPlacement(types.Owner(nextUp), gs.players[nextUp].profile.Pieces) {
 			return nextUp, nil
@@ -89,7 +104,53 @@ func (gs *GameState) sendGameMessage(msg string) {
 	})
 }
 
+func (gs *GameState) sendPlayerList() {
+	gs.playersLock.Lock()
+	defer gs.playersLock.Unlock()
+	players := make([]types.PlayerConfig, 0, len(gs.players))
+	for pid, player := range gs.players {
+		if player != nil {
+			player.mtx.Lock()
+			players = append(players, types.PlayerConfig{
+				PID:    pid,
+				Name:   player.profile.Name,
+				Color:  player.profile.Color,
+				Status: player.status,
+				Time:   player.playerTimer.TimeLeftMs(),
+			})
+			player.mtx.Unlock()
+		}
+	}
+
+	gs.socketManager.Broadcast(&types.SocketData{
+		Type: types.PLAYER_UPDATE,
+		Data: players,
+	})
+}
+
+func (gs *GameState) hasPlayerStatus(player *PlayerState, status types.PlayerStatus) bool {
+	fmt.Println("checking for player status ", status)
+	player.mtx.Lock()
+	fmt.Println("locked ")
+	defer player.mtx.Unlock()
+	return player.status&status != 0
+}
+
+func (gs *GameState) setPlayerStatus(player *PlayerState, status types.PlayerStatus) {
+	player.mtx.Lock()
+	defer player.mtx.Unlock()
+	player.status |= status
+}
+
+func (gs *GameState) clearPlayerStatus(player *PlayerState, status types.PlayerStatus) {
+	player.mtx.Lock()
+	defer player.mtx.Unlock()
+	player.status &= ^status
+}
+
 func (gs *GameState) getPlayer(pid types.PlayerID) (*PlayerState, error) {
+	gs.playersLock.Lock()
+	defer gs.playersLock.Unlock()
 	player, ok := gs.players[pid]
 	if !ok {
 		return nil, errors.New("invalid player id")
@@ -97,35 +158,29 @@ func (gs *GameState) getPlayer(pid types.PlayerID) (*PlayerState, error) {
 	return player, nil
 }
 
-func (gs *GameState) getActivePlayers() []types.PlayerConfig {
-	players := make([]types.PlayerConfig, 0, len(gs.players))
-	for pid, player := range gs.players {
-		players = append(players, types.PlayerConfig{
-			PID:    pid,
-			Name:   player.profile.Name,
-			Color:  player.profile.Color,
-			Status: player.status,
-		})
-	}
-	return players
-}
-
-func (gs *GameState) ConnectPlayer(name string, color uint) (types.PlayerID, error) {
+func (gs *GameState) AddPlayer(name string, color uint) (types.PlayerID, error) {
 	/* Assign the new player a PID, if there is one available */
-
+	gs.playersLock.Lock()
+	defer gs.playersLock.Unlock()
 	for pid, player := range gs.players {
-		if player.status == types.NONE { // No player connected at this pid yet
-			*player = PlayerState{
+		if player == nil { // No player connected at this pid yet
+			gs.players[pid] = &PlayerState{
 				profile: PlayerProfile{
 					Name:   name,
 					Color:  color,
 					Pieces: gs.startingPieces.Copy(),
 				},
-				status:            types.JOINED,
-				socket:            nil,
-				connectionTimeout: nil,
+				status: JOINED,
+				socket: nil,
+				playerTimer: utilities.InitTimer(
+					gs.config.TimeControl*1000,
+					gs.config.TimeBonus*1000,
+					gs.handleTimeout,
+					pid,
+				),
+				// connectionTimeout: nil,
+				mtx: &sync.Mutex{},
 			}
-
 			return pid, nil
 		}
 	}
@@ -137,24 +192,26 @@ func (gs *GameState) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) e
 	if err != nil {
 		return err
 	}
-	if player.status&types.JOINED == 0 {
+
+	fmt.Println(player)
+
+	if !gs.hasPlayerStatus(player, JOINED) {
 		return errors.New("invalid player status")
 	}
 
-	player.socket = gs.socketManager.Connect(socket)
-	player.status |= types.CONNECTED
+	fmt.Println("player status ok")
 
-	if player.connectionTimeout != nil {
-		player.connectionTimeout.Cancel()
-	}
+	player.socket = gs.socketManager.Connect(socket)
+	gs.setPlayerStatus(player, CONNECTED)
+
+	// if player.connectionTimeout != nil {
+	// 	player.connectionTimeout.Cancel()
+	// }
 
 	fmt.Println("Connected player ", pid)
 
 	// Send all players the current player list to sync up
-	gs.socketManager.Broadcast(&types.SocketData{
-		Type: types.PLAYER_UPDATE,
-		Data: &types.ActivePlayers{Players: gs.getActivePlayers()},
-	})
+	gs.sendPlayerList()
 
 	gs.socketManager.Send(
 		player.socket,
@@ -213,20 +270,15 @@ func (gs *GameState) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) e
 	// handle socket disconnection type events
 	gs.socketManager.Disconnect(player.socket)
 	player.socket = nil
-	player.status &= ^types.CONNECTED
-	player.connectionTimeout = utilities.InitTimer(10, func() {
-		player.status = types.JOINED // Remove player from active set
-
-		// broadcast updated player list
-		gs.socketManager.Broadcast(&types.SocketData{
-			Type: types.PLAYER_UPDATE,
-			Data: &types.ActivePlayers{Players: gs.getActivePlayers()},
-		})
-
-		gs.sendGameMessage(fmt.Sprintf("%s has left the game", player.profile.Name))
-		fmt.Println("Disconnected player ", pid)
-	})
-	player.connectionTimeout.Start()
+	gs.clearPlayerStatus(player, CONNECTED)
+	// player.connectionTimeout = utilities.InitTimer(10, 0, func(...any) {
+	// 	player.status = types.JOINED // Remove player from active set
+	// 	gs.sendPlayerList()          // broadcast updated player list
+	// 	// TODO: Find next valid turn and broadcast it
+	// 	gs.sendGameMessage(fmt.Sprintf("%s has left the game", player.profile.Name))
+	// 	fmt.Println("Disconnected player ", pid)
+	// })
+	// player.connectionTimeout.Start()
 
 	return nil
 }
@@ -241,7 +293,9 @@ func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) e
 		return errors.New("not your turn")
 	}
 
-	fmt.Println(gs.board.ToString())
+	if gs.hasPlayerStatus(player, TIMED_OUT) {
+		return errors.New("player time expired")
+	}
 
 	// convert placement to Piece/origin
 	relPoints, origin := utilities.NormalizeToOrigin(utilities.NewSet(placement.Coordinates))
@@ -259,6 +313,9 @@ func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) e
 	if err != nil {
 		return err
 	}
+
+	player.playerTimer.Pause() // successfully placed piece, pause timer
+
 	player.profile.Pieces.Remove(piece)
 
 	nextUp, err := gs.nextTurn()
@@ -266,6 +323,7 @@ func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) e
 		winner, _ := gs.determineWinner()
 		gs.getPlayer(winner)
 		gs.sendGameMessage("Game over!")
+		gs.turn = types.PID_NONE
 		// gs.sendGameMessage(fmt.Sprintf("%s wins!", p.profile.Name))
 	} else {
 		gs.turn = nextUp
@@ -279,9 +337,25 @@ func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) e
 		},
 	})
 
+	// Start next players timer
+	if gs.turn != types.PID_NONE && gs.config.TimeControl > 0 {
+		nextPlayer, _ := gs.getPlayer(gs.turn)
+		nextPlayer.playerTimer.Start()
+	}
+
+	// Send updated times to all players
+	gs.sendPlayerList()
+
 	return nil
 }
 
 func (gs *GameState) determineWinner() (types.PlayerID, error) {
 	return types.PID_NONE, nil
+}
+
+func (gs *GameState) handleTimeout(args ...any) {
+	pid := args[0].(types.PlayerID)
+	player, _ := gs.getPlayer(pid)
+	gs.setPlayerStatus(player, TIMED_OUT)
+	gs.sendPlayerList()
 }

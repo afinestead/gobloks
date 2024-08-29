@@ -2,12 +2,16 @@
   <v-card
     v-if="player.name"
     :title="player.name"
-    class="mx-auto my-5"
-    :color="`${player.color}`"
-    :disabled="connected"
+    :class="['mx-auto', 'my-5']"
+    :color="`${player.color}50`"
+    :disabled="!isActive"
+    :variant="myTurn ? 'elevated' : 'flat'"
   >
     <template v-slot:prepend>
       <v-icon :class="connected ? 'connected' : 'disconnected'" size="x-small">mdi-checkbox-blank-circle</v-icon>
+    </template>
+    <template v-slot:append>
+      <slot name="timer"></slot>
     </template>
   </v-card>
   
@@ -21,7 +25,8 @@ const props = defineProps({
   myTurn: Boolean,
 });
 
-const connected = computed(() => props.player.status);
+const connected = computed(() => (props.player.status & 0x2) !== 0);
+const isActive = computed(() => (props.player.status & 0x4) !== 0);
 
 </script>
 
@@ -32,5 +37,9 @@ const connected = computed(() => props.player.status);
 
 .disconnected {
   visibility: hidden;
+}
+
+.highlight {
+  border: 5px solid #ffff00f0;
 }
 </style>

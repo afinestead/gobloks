@@ -46,7 +46,7 @@ func joinGame(c *gin.Context) {
 		return
 	}
 
-	pid, err := gs.ConnectPlayer(config.Name, config.Color)
+	pid, err := gs.AddPlayer(config.Name, config.Color)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusConflict, err)
 		return

@@ -14,8 +14,9 @@ export const useStore = defineStore("store", {
         }
     },
     actions: {
-        async getCurrentPlayer() {
-            return this.api.getCurrentPlayer(this.token);
+        async createGame(gameConfig) {
+            const r = await this.api.createGame(gameConfig);
+            return r.data;
         },
         async joinGame(gameId, name, color) {
             const r = await this.api.joinGame(gameId, name, color);
