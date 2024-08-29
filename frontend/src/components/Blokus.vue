@@ -141,12 +141,6 @@ const IsMyOrigin = coords => IsValid(coords) && Boolean(board.value[coords[0]][c
 const IsOtherOrigin = coords => IsValid(coords) && Boolean(board.value[coords[0]][coords[1]] & (1<<30)) && SquarePID(coords) !== playerID.value;
 const OccupiedByMe = coords => IsValid(coords) && IsOccupied(coords) && SquarePID(coords) === playerID.value;
 
-function exitGame() {
-  ws.value.close();
-  store.revokeToken();
-  router.push({ path: "/join" });
-}
-
 function calculateOverlap(i, j) {
   if (selectedPiece.value) {
 
@@ -253,6 +247,8 @@ squareSize.value = Math.round(sq.getBoundingClientRect().width);
 
 onMounted(() => {
 
+  store.setGameActive(true);
+
   nextTick(() => window.addEventListener('resize', onResize));
 
   document.onmousemove = (event) => {
@@ -286,7 +282,7 @@ onMounted(() => {
   };
   
   // open a websocket for game updates
-  const new_ws = store.socket;
+  const new_ws = store.connectSocket();
   new_ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
     console.log(msg);
@@ -340,7 +336,6 @@ onMounted(() => {
   }
   
   ws.value = new_ws;
-
 });
 
 function snapPieceToCursor() {

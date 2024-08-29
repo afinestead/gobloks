@@ -11,6 +11,8 @@ export const useStore = defineStore("store", {
             apiLocation: getAPIlocation(),
             api: new DefaultApi(new ApiClient(`http://${getAPIlocation()}`)),
             token: localStorage.getItem("accessToken"),
+            inGame: false,
+            ws: null,
         }
     },
     actions: {
@@ -26,14 +28,17 @@ export const useStore = defineStore("store", {
         async placePiece(placement) {
             return this.api.place(this.token, placement);
         },
+        setGameActive(active) { this.inGame = active; },
         revokeToken() {
+            this.inGame = false;
             this.token = null;
             localStorage.removeItem("accessToken");
         },
+        connectSocket() {
+            // NOTE: Smuggling access token to server via websocket protocol header
+            //       https://stackoverflow.com/questions/4361173/http-headers-in-websockets-client-api
+            this.ws = new WebSocket(`ws://${this.apiLocation}/ws?access_token=${this.token}`);
+            return this.ws;
+        }
     },
-    getters: {
-        // NOTE: Smuggling access token to server via websocket protocol header
-        //       https://stackoverflow.com/questions/4361173/http-headers-in-websockets-client-api
-        socket() { return new WebSocket(`ws://${this.apiLocation}/ws?access_token=${this.token}`) },
-    }
 });
