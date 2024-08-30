@@ -26,7 +26,7 @@
               v-for="pid, j in row"
               :key="j"
               :owner="pid"
-              :players="allPlayers"
+              :color="allPlayers[pid&0xffff]?.color"
               @mouseover="calculateOverlap(i, j)"
             />
           </div>
@@ -41,7 +41,10 @@
           :myTurn="whoseTurn === player.pid"
         >
           <template v-slot:timer>
-            <timer :time="player.time"/>
+            <timer
+              :time="player.time"
+              :active="whoseTurn === player.pid && (gameStatus & 0b111) == 0b011"
+            />
           </template>
         </player-card>
       </v-col>
@@ -64,29 +67,15 @@
       @change="nextTick(() => snapPieceToCursor())"
     />
 
-    <v-expansion-panels v-model="chatPanel" class="chat-drawer bordered">
-      <v-expansion-panel expand-icon="mdi-chevron-up" collapse-icon="mdi-chevron-down">
-        <v-expansion-panel-title static color="primary">
-          <v-badge v-if="unreadMessages" color="error" :content="unreadMessages > 9 ? `9+` : unreadMessages">
-            <v-icon>mdi-email-outline</v-icon>
-          </v-badge>
-          <v-icon v-else>mdi-email-outline</v-icon>
-          <span class="chat-title">Chat</span>
-        </v-expansion-panel-title>
-        <v-expansion-panel-text class="chat-box-expansion">
-          <chat
-            :messages="liveChat"
-            :pid="playerID"
-            :players="allPlayers"
-            @send="msg => ws.send(msg)"
-          />
-        </v-expansion-panel-text>
-      </v-expansion-panel>
-    </v-expansion-panels>
+    <chat
+      class="chat-drawer bordered"
+      :messages="liveChat"
+      :pid="playerID"
+      :players="allPlayers"
+      @send="msg => ws.send(msg)"
+    />
 
   </v-container>
-
- 
 
 </template>
 
@@ -114,6 +103,7 @@ const pieceDeck = ref(null);
 const allPlayers = ref([]);
 const playerID = ref(null);
 const whoseTurn = ref(null);
+const gameStatus = ref(0);
 
 const selectedPiece = ref(null);
 const selectedPieceRef = ref(null);
@@ -125,9 +115,6 @@ const offsetY = ref(null);
 
 const ws = ref(null);
 
-const chatPanel = ref(0);
-const chatOpen = ref(true);
-const unreadMessages = ref(0);
 const liveChat = ref([]);
 
 // const boardHTML = ref([]);
@@ -241,8 +228,8 @@ function calculateOverlap(i, j) {
 }
 
 function onResize() {
-const sq = document.querySelector(".board-square")
-squareSize.value = Math.round(sq.getBoundingClientRect().width);
+  const sq = document.querySelector(".board-square")
+  squareSize.value = Math.round(sq.getBoundingClientRect().width);
 };
 
 onMounted(() => {
@@ -277,8 +264,9 @@ onMounted(() => {
   document.oncontextmenu = (event) => {
     if (selectedPiece.value) {
       selectedPieceRef.value.handlePieceClick(event);
+      return false;
     }
-    return false;
+    return true;
   };
   
   // open a websocket for game updates
@@ -290,25 +278,28 @@ onMounted(() => {
     switch (msg.type) {
 
       case MessageType.ChatMesssage:
-        if (!chatOpen.value) {
-          unreadMessages.value += 1;
-        }
         liveChat.value.unshift({
           origin: msg.data.origin,
           msg: msg.data.message,
         });
         break;
       
-      case MessageType.PublicGameState:
-        boardSize.value = msg.data.board.length;
-        board.value = msg.data.board;
-        whoseTurn.value = msg.data.turn;
+      case MessageType.BoardState:
+        boardSize.value = msg.data.length;
+        board.value = msg.data;
         nextTick(() => onResize());
         break;
       
       case MessageType.PrivateGameState:
         playerID.value = msg.data.pid; 
         myPieces.value = msg.data.pieces.sort((p1,p2) => p1.hash - p2.hash);
+        break;
+      
+      case MessageType.GameStatus:
+        whoseTurn.value = msg.data.turn;
+        gameStatus.value = msg.data.status;
+
+        console.log("Game status", whoseTurn.value, gameStatus.value);
         break;
       
       case MessageType.PlayerUpdate:
@@ -442,13 +433,6 @@ watch(selectedPiece, (newPiece) => {
   }
 });
 
-watch(chatPanel, (opened) => {
-  chatOpen.value = opened === 0;
-  if (chatOpen.value) {
-    unreadMessages.value = 0;
-  }
-});
-
 </script>
 
 <style scoped>
@@ -469,21 +453,12 @@ watch(chatPanel, (opened) => {
   width: 344px;
 }
 
-.chat-box-expansion > * {
-  padding: 0;
-  height: 300px;
-}
-
-.chat-title {
-  margin-left: 2em;
-}
-
 .panel {
   height: 100%;
+  padding: 0.5em;
 }
 
 .my-pieces {
-  padding: 0.5em;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -494,11 +469,9 @@ watch(chatPanel, (opened) => {
 
 .board {
   aspect-ratio: 1/1;
-  padding: 1em;
 }
 
 .players {
-  padding: 0.5em;
   overflow-y: auto;
 }
 

@@ -14,6 +14,15 @@ type SocketConnection struct {
 	mu     *sync.Mutex
 }
 
+// Message types for socket communication
+const (
+	PLAYER_UPDATE types.SocketDataType = iota
+	BOARD_STATE
+	PRIVATE_GAME_STATE
+	CHAT_MESSAGE
+	GAME_STATUS
+)
+
 func InitSocketConnection(socket *websocket.Conn) *SocketConnection {
 	return &SocketConnection{socket, &sync.Mutex{}}
 }

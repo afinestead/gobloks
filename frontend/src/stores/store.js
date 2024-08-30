@@ -32,6 +32,10 @@ export const useStore = defineStore("store", {
         revokeToken() {
             this.inGame = false;
             this.token = null;
+            if (this.ws) {
+                this.ws.close();
+                this.ws = null;
+            }
             localStorage.removeItem("accessToken");
         },
         connectSocket() {

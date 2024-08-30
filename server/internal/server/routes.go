@@ -81,6 +81,7 @@ func placePiece(c *gin.Context) {
 
 	err = gs.PlacePiece(pid, placement)
 	if err != nil {
+		fmt.Println(err)
 		c.AbortWithStatusJSON(http.StatusConflict, "invalid placement")
 		return
 	}

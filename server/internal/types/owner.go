@@ -4,6 +4,13 @@ import (
 	"strconv"
 )
 
+const (
+	PLAYER_MASK Owner = 0x0000ffff
+	VACANT      Owner = (1 << 29)
+	ORIGIN      Owner = (1 << 30)
+	RESERVED    Owner = (1 << 31)
+)
+
 func (o1 Owner) IsSamePlayer(o2 Owner) bool {
 	return o1&PLAYER_MASK == o2&PLAYER_MASK
 }

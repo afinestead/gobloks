@@ -12,6 +12,12 @@ type Piece struct{ repr, hash uint64 }
 type PieceSet utilities.Set[Piece]
 type PieceCoord struct{ X, Y uint8 }
 
+const (
+	MaxPieceDegree uint8  = 8
+	ColumnMask     uint64 = 0x8080808080808080
+	MatrixMagic    uint64 = 0x02040810204081
+)
+
 func (p PieceCoord) getAdjacent(dir types.Direction) (PieceCoord, error) {
 	var pt PieceCoord
 	var err error
@@ -24,7 +30,7 @@ func (p PieceCoord) getAdjacent(dir types.Direction) (PieceCoord, error) {
 	} else { // dir == RIGHT
 		pt = PieceCoord{p.X + 1, p.Y}
 	}
-	if pt.X >= types.MaxPieceDegree || pt.Y >= types.MaxPieceDegree {
+	if pt.X >= MaxPieceDegree || pt.Y >= MaxPieceDegree {
 		// under/overflow
 		err = errors.New("no adjacent point")
 	}
@@ -77,7 +83,7 @@ func (p *Piece) Reflect(ax types.Axis) {
 	var ii uint8
 	var ref uint64
 
-	for ii = 0; ii < types.MaxPieceDegree; ii++ {
+	for ii = 0; ii < MaxPieceDegree; ii++ {
 		if ax == types.Y {
 			ref = reflectY64(p.repr)
 		} else {
@@ -94,7 +100,7 @@ func (p *Piece) Normalize() {
 func (p *Piece) Corners() []types.Point {
 	var corners []types.Point
 
-	const deg = int(types.MaxPieceDegree)
+	const deg = int(MaxPieceDegree)
 
 	for i := 0; i < deg; i++ {
 		for j := 0; j < deg; j++ {
@@ -205,16 +211,16 @@ func ValidPieceCoords(points utilities.Set[PieceCoord]) bool {
 
 func lsXY(n uint64) (uint8, uint8) {
 	var ii, row, tz uint8
-	lsx := types.MaxPieceDegree
-	lsy := types.MaxPieceDegree * types.MaxPieceDegree
-	for ii = types.MaxPieceDegree; ii > 0; ii-- {
+	lsx := MaxPieceDegree
+	lsy := MaxPieceDegree * MaxPieceDegree
+	for ii = MaxPieceDegree; ii > 0; ii-- {
 		row = getRow(n, ii-1)
 		tz = uint8(bits.TrailingZeros8(row))
 		if tz < lsx {
 			lsx = tz
 		}
 		if row > 0 {
-			lsy = (ii - 1) * types.MaxPieceDegree
+			lsy = (ii - 1) * MaxPieceDegree
 		}
 	}
 	return lsx, lsy
@@ -228,11 +234,11 @@ func normalize64(n uint64) uint64 {
 func rotate64(n uint64) uint64 {
 	var res uint64
 	var lsx, lsy, ii uint8
-	lsx = types.MaxPieceDegree
-	lsy = types.MaxPieceDegree * types.MaxPieceDegree
-	for ii = 0; ii < types.MaxPieceDegree; ii++ {
+	lsx = MaxPieceDegree
+	lsy = MaxPieceDegree * MaxPieceDegree
+	for ii = 0; ii < MaxPieceDegree; ii++ {
 		newRow := getColumn(n, ii)
-		rowShift := types.MaxPieceDegree * (types.MaxPieceDegree - ii - 1)
+		rowShift := MaxPieceDegree * (MaxPieceDegree - ii - 1)
 		tz := uint8(bits.TrailingZeros8(newRow))
 		if newRow > 0 {
 			if rowShift < lsy {
@@ -248,11 +254,11 @@ func rotate64(n uint64) uint64 {
 }
 
 func getColumn(n uint64, col uint8) uint8 {
-	return uint8((((n << (types.MaxPieceDegree - 1 - col)) & types.ColumnMask) * types.MatrixMagic) >> ((types.MaxPieceDegree * types.MaxPieceDegree) - types.MaxPieceDegree) & uint64(math.MaxUint8))
+	return uint8((((n << (MaxPieceDegree - 1 - col)) & ColumnMask) * MatrixMagic) >> ((MaxPieceDegree * MaxPieceDegree) - MaxPieceDegree) & uint64(math.MaxUint8))
 }
 
 func getRow(n uint64, row uint8) uint8 {
-	return uint8(n >> (row * types.MaxPieceDegree))
+	return uint8(n >> (row * MaxPieceDegree))
 }
 
 func reflectY64(n uint64) uint64 {
@@ -266,10 +272,10 @@ func reflectX64(n uint64) uint64 {
 func stringify64(num uint64, filled, unfilled rune) string {
 	var s string
 	var ii, jj uint8
-	for ii = 0; ii < types.MaxPieceDegree; ii++ {
+	for ii = 0; ii < MaxPieceDegree; ii++ {
 		row := getRow(num, ii)
 		s += "\n"
-		for jj = 0; jj < types.MaxPieceDegree; jj++ {
+		for jj = 0; jj < MaxPieceDegree; jj++ {
 			col := (row >> jj) & 1
 			if col > 0 {
 				s += string(filled)
@@ -282,12 +288,12 @@ func stringify64(num uint64, filled, unfilled rune) string {
 }
 
 func pointTo64(pt PieceCoord) uint64 {
-	return (1 << pt.X) << (pt.Y * types.MaxPieceDegree)
+	return (1 << pt.X) << (pt.Y * MaxPieceDegree)
 }
 
 func pointFrom64(n uint64) PieceCoord {
 	tz := uint8(bits.TrailingZeros64(n))
-	return PieceCoord{tz % types.MaxPieceDegree, tz / types.MaxPieceDegree}
+	return PieceCoord{tz % MaxPieceDegree, tz / MaxPieceDegree}
 }
 
 func (ps *PieceSet) Size() int {

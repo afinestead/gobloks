@@ -5,8 +5,9 @@ type Axis int
 type Owner uint32
 type PlayerID uint16
 type GameID string
+
+type Flags uint32
 type SocketDataType uint32
-type PlayerStatus uint
 
 type SocketData struct {
 	Type SocketDataType `json:"type"`
@@ -32,11 +33,11 @@ type GameConfig struct {
 }
 
 type PlayerConfig struct {
-	PID    PlayerID     `json:"pid"`
-	Name   string       `json:"name" binding:"required,max=32"`
-	Color  uint         `json:"color" binding:"required,gt=0,lte=16777215"`
-	Status PlayerStatus `json:"status"`
-	Time   uint         `json:"timeMs"`
+	PID    PlayerID `json:"pid"`
+	Name   string   `json:"name" binding:"required,max=32"`
+	Color  uint     `json:"color" binding:"required,gt=0,lte=16777215"`
+	Status Flags    `json:"status"`
+	Time   uint     `json:"timeMs"`
 }
 
 type ChatMessage struct {
@@ -44,12 +45,12 @@ type ChatMessage struct {
 	Message string `json:"message"`
 }
 
-type PublicGameState struct {
-	Board [][]Owner `json:"board"`
-	Turn  PlayerID  `json:"turn"`
-}
-
 type PrivateGameState struct {
 	PID    PlayerID      `json:"pid"`
 	Pieces []PublicPiece `json:"pieces"`
+}
+
+type PublicGameState struct {
+	Turn   PlayerID `json:"turn"`
+	Status Flags    `json:"status"`
 }

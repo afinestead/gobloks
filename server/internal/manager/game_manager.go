@@ -36,8 +36,6 @@ func (gs *GameManager) CreateGame(config types.GameConfig) types.GameID {
 
 	gs.mangagedGames[gid] = InitGameState(config)
 
-	fmt.Println(gs.mangagedGames[gid])
-
 	return gid
 }
 

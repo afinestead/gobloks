@@ -6,8 +6,8 @@ import (
 )
 
 func GeneratePieceSet(degree uint8) (PieceSet, uint, error) {
-	if degree > types.MaxPieceDegree {
-		return nil, 0, fmt.Errorf("degree must not exceed %v", types.MaxPieceDegree)
+	if degree > MaxPieceDegree {
+		return nil, 0, fmt.Errorf("degree must not exceed %v", MaxPieceDegree)
 	}
 	chResult := make(chan Piece)
 
@@ -68,11 +68,11 @@ func generateNextPieces(piece Piece) PieceSet {
 	} else {
 		var shift uint8
 		// shift up and over one row+column, if we can
-		if getRow(piece.repr, types.MaxPieceDegree-1) == 0 {
+		if getRow(piece.repr, MaxPieceDegree-1) == 0 {
 			shift += 1
 		}
-		if getColumn(piece.repr, types.MaxPieceDegree-1) == 0 {
-			shift += types.MaxPieceDegree
+		if getColumn(piece.repr, MaxPieceDegree-1) == 0 {
+			shift += MaxPieceDegree
 		}
 		piece.repr <<= uint64(shift)
 

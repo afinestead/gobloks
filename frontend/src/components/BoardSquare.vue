@@ -12,18 +12,19 @@ import { computed } from 'vue';
 const props = defineProps({
   owner: Number,
   players: Object,
+  color: String,
 });
 
-const ownerColor = computed(() => props.players[props.owner&0xffff]?.color || '#ffffff');
 const isOccupied = computed(() => !(props.owner & (1<<29)));
 const isOrigin = computed(() => props.owner & (1<<30));
 const isHidden = computed(() => props.owner & (1<<31));
 
 const sqColor = computed(() => {
+  const ownerColor = props.color || '#ffffff';
   if (isOccupied.value) {
-    return `${ownerColor.value}ff`;
+    return `${ownerColor}ff`;
   } else if (isOrigin.value) {
-    return `${ownerColor.value}50`;
+    return `${ownerColor}50`;
   } else {
     return '#ffffffff';
   }
