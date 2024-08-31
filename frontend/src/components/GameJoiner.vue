@@ -87,8 +87,6 @@ const joining = ref(false);
 const errorMessage = ref("");
 
 onBeforeMount(() => {
-  console.log(route.query);
-  
 if (store.token) {
   router.push({ path: "/play" });
 }

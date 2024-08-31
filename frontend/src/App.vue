@@ -12,16 +12,11 @@
 </template>
 
 <script setup>
-import { onBeforeMount } from "vue";
 import { useRouter } from 'vue-router';
 import { useStore } from '@/stores/store';
 
 const router = useRouter();
 const store = useStore()
-
-onBeforeMount(() => {
-  router.push({ path: "/join" });
-});
 
 function exitGame() {
   store.revokeToken();
