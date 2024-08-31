@@ -33,7 +33,7 @@
             width="80"
             v-model="blockDeg"
             type="number"
-            min="1"
+            min="3"
             max="8"
             step="1"
             outlined

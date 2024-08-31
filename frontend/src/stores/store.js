@@ -10,7 +10,7 @@ export const useStore = defineStore("store", {
         return {
             apiLocation: getAPIlocation(),
             api: new DefaultApi(new ApiClient(`http://${getAPIlocation()}`)),
-            token: localStorage.getItem("accessToken"),
+            token: sessionStorage.getItem("accessToken"),
             inGame: false,
             ws: null,
         }
@@ -23,7 +23,7 @@ export const useStore = defineStore("store", {
         async joinGame(gameId, name, color) {
             const r = await this.api.joinGame(gameId, name, color);
             this.token = r.response.headers['access-token'];
-            localStorage.setItem("accessToken", this.token);
+            sessionStorage.setItem("accessToken", this.token);
         },
         async placePiece(placement) {
             return this.api.place(this.token, placement);
@@ -33,7 +33,7 @@ export const useStore = defineStore("store", {
             this.disconnectSocket();
             this.inGame = false;
             this.token = null;
-            localStorage.removeItem("accessToken");
+            sessionStorage.removeItem("accessToken");
         },
         connectSocket() {
             // NOTE: Smuggling access token to server via websocket protocol header

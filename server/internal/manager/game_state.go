@@ -7,6 +7,7 @@ import (
 	"gobloks/internal/types"
 	"gobloks/internal/utilities"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -36,11 +37,12 @@ type PlayerProfile struct {
 }
 
 type PlayerState struct {
-	profile     PlayerProfile
-	status      types.Flags
-	socket      *SocketConnection
-	playerTimer *utilities.Timer
-	// connectionTimeout *utilities.Timer
+	pid               types.PlayerID
+	profile           PlayerProfile
+	status            types.Flags
+	socket            *SocketConnection
+	playerTimer       *utilities.Timer
+	connectionTimeout *utilities.Timer
 }
 
 type GameState struct {
@@ -52,6 +54,7 @@ type GameState struct {
 	startingPieces game.PieceSet
 	socketManager  *SocketManager
 	config         types.GameConfig
+	lastActive     time.Time
 }
 
 func InitGameState(config types.GameConfig) *GameState {
@@ -84,7 +87,20 @@ func InitGameState(config types.GameConfig) *GameState {
 		pieces,
 		InitSocketManager(len(pids)),
 		config,
+		time.Now(),
 	}
+}
+
+func (gs *GameState) IsStale() bool {
+	var cleanupAfter time.Duration
+	if gs.config.TimeControl == 0 {
+		// Cleanup untimed games after a week of inactivity
+		cleanupAfter = 7 * 24 * time.Hour
+	} else {
+		cleanupAfter = time.Duration(5*gs.config.Players*gs.config.TimeControl*1000) * time.Millisecond
+	}
+	fmt.Println("Cleanup after", cleanupAfter, "currently", time.Since(gs.lastActive))
+	return time.Since(gs.lastActive) > cleanupAfter
 }
 
 func (gs *GameState) nextTurn() {
@@ -164,14 +180,24 @@ func (gs *GameState) receiveMessages(player *PlayerState) {
 	gs.socketManager.Disconnect(player.socket)
 	player.socket = nil
 	player.status.Clear(CONNECTED)
-	fmt.Println("Disconnected", player.profile.Name)
-	// player.connectionTimeout = utilities.InitTimer(10, 0, func(...any) {
-	// 	player.status = types.JOINED // Remove player from active set
-	// 	gs.sendPlayerList()          // broadcast updated player list
-	// 	// TODO: Find next valid turn and broadcast it
-	// 	gs.sendGameMessage(fmt.Sprintf("%s has left the game", player.profile.Name))
-	// })
-	// player.connectionTimeout.Start()
+	fmt.Println("Disconnected", player.pid)
+
+	gs.sendPlayerList()
+	gs.sendGameStatus()
+
+	player.connectionTimeout = utilities.InitTimer(15000, 0, func(...any) {
+		gs.lock.Lock()
+		defer gs.lock.Unlock()
+		player.status.Set(DISABLED) // Remove player from active set
+		player.playerTimer.Cancel() // stop timer if applicable
+		if gs.turn == player.pid {
+			gs.nextTurn() // advance turn if necessary
+		}
+		gs.sendPlayerList() // broadcast updated player list
+		gs.sendGameStatus()
+		gs.sendGameMessage(fmt.Sprintf("%s has left the game", player.profile.Name))
+	})
+	player.connectionTimeout.Start()
 }
 
 func (gs *GameState) sendGameMessage(msg string) {
@@ -232,6 +258,7 @@ func (gs *GameState) AddPlayer(name string, color uint) (types.PlayerID, error) 
 	for pid = 1; pid <= len(gs.players); pid++ {
 		if gs.players[types.PlayerID(pid)] == nil {
 			gs.players[types.PlayerID(pid)] = &PlayerState{
+				pid: types.PlayerID(pid),
 				profile: PlayerProfile{
 					Name:   name,
 					Color:  color,
@@ -245,13 +272,14 @@ func (gs *GameState) AddPlayer(name string, color uint) (types.PlayerID, error) 
 					gs.handleTimeout,
 					types.PlayerID(pid),
 				),
-				// connectionTimeout: nil,
+				connectionTimeout: nil,
 			}
 			break
 		}
 	}
 
 	fmt.Println("Added player ", pid)
+	gs.lastActive = time.Now()
 
 	if pid == len(gs.players) {
 		fmt.Println("Game is full")
@@ -281,9 +309,9 @@ func (gs *GameState) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) e
 	// begin receiving messages on this socket
 	go gs.receiveMessages(player)
 
-	// if player.connectionTimeout != nil {
-	// 	player.connectionTimeout.Cancel()
-	// }
+	if player.connectionTimeout != nil {
+		player.connectionTimeout.Cancel()
+	}
 
 	fmt.Println("Connected player ", pid)
 
@@ -359,6 +387,8 @@ func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) e
 	fmt.Println("PID", pid)
 	fmt.Println("placed piece at", origin, piece.ToString())
 
+	gs.lastActive = time.Now()
+
 	gs.status.Set(IN_PROGRESS)
 
 	gs.socketManager.Broadcast(&types.SocketData{Type: BOARD_STATE, Data: gs.board.GetRaw()})
@@ -375,8 +405,8 @@ func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) e
 	return nil
 }
 
-func (gs *GameState) determineWinners() []string {
-	winners := make([]string, 0, len(gs.players))
+func (gs *GameState) calculateScores() (map[*PlayerState]int, int) {
+	scores := make(map[*PlayerState]int, len(gs.players))
 	minScore := 0xffffffff
 	for _, player := range gs.players {
 		if player != nil {
@@ -384,11 +414,23 @@ func (gs *GameState) determineWinners() []string {
 			for piece := range player.profile.Pieces {
 				score += int(piece.Size())
 			}
-			fmt.Println(player.profile.Name, score)
+			scores[player] = score
 			if score <= minScore {
 				minScore = score
-				winners = append(winners, player.profile.Name)
 			}
+		}
+	}
+	return scores, minScore
+}
+
+func (gs *GameState) determineWinners() []string {
+	winners := make([]string, 0, len(gs.players))
+	scores, minScore := gs.calculateScores()
+
+	for player, score := range scores {
+		fmt.Println(player.profile.Name, score)
+		if score == minScore {
+			winners = append(winners, player.profile.Name)
 		}
 	}
 	return winners
@@ -401,6 +443,7 @@ func (gs *GameState) handleTimeout(args ...any) {
 	pid := args[0].(types.PlayerID)
 	player, _ := gs.getPlayer(pid)
 	player.status.Set(TIMED_OUT | DISABLED)
+	player.connectionTimeout.Cancel()
 	gs.nextTurn()
 	gs.sendPlayerList()
 	gs.sendGameStatus()

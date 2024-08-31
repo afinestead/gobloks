@@ -32,7 +32,6 @@ onMounted(() => {
 
 function startTime() {
   clearInterval(timer.value);
-  console.log("start time", props.active, timeInternal.value);
   if (props.active && timeInternal.value > 0) {
     timer.value = setInterval(() => {
       // hold value at 0.1s- 0.0 will be sent by the server

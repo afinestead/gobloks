@@ -5,6 +5,7 @@ import (
 	"gobloks/internal/types"
 	"math/rand"
 	"sync"
+	"time"
 )
 
 type GameManager struct {
@@ -13,10 +14,18 @@ type GameManager struct {
 }
 
 func InitGameManager() *GameManager {
-	return &GameManager{
+	manager := &GameManager{
 		make(map[types.GameID]*GameState, types.MANAGED_GAMES_START_SIZE),
 		&sync.Mutex{},
 	}
+
+	go func() {
+		for range time.Tick(time.Hour * 24) {
+			manager.CleanupStale()
+		}
+	}()
+
+	return manager
 }
 
 const letterBytes = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -57,13 +66,26 @@ func (gm *GameManager) FindGame(gid types.GameID) (*GameState, error) {
 	return game, nil
 }
 
-func (gm *GameManager) DeleteGame(gid types.GameID) error {
+func (gm *GameManager) ListGames() []types.GameID {
 	gm.lock.Lock()
 	defer gm.lock.Unlock()
 
-	if _, ok := gm.mangagedGames[gid]; !ok {
-		return fmt.Errorf("invalid game id `%s`", gid)
+	// TODO: paginate?
+	gids := make([]types.GameID, 0, len(gm.mangagedGames))
+	for gid := range gm.mangagedGames {
+		gids = append(gids, gid)
 	}
-	delete(gm.mangagedGames, gid)
-	return nil
+	return gids
+}
+
+func (gm *GameManager) CleanupStale() {
+	gm.lock.Lock()
+	defer gm.lock.Unlock()
+	fmt.Println("cleaning up stale games")
+	for gid := range gm.mangagedGames {
+		if gm.mangagedGames[gid].IsStale() {
+			fmt.Println("cleaned up stale game", gid)
+			delete(gm.mangagedGames, gid)
+		}
+	}
 }

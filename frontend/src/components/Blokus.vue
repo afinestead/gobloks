@@ -25,7 +25,7 @@
               :owner="pid"
               :color="allPlayers[pid&0xffff]?.color"
               @mouseover="hoverX = i; hoverY = j; calculateOverlap(i, j)"
-              @mouseout="clearHighlight()"
+              @mouseout="hoverX = null; hoverY = null; clearHighlight()"
             />
           </div>
         </div>
@@ -375,7 +375,9 @@ function snapPieceToCursor() {
   ];
 
   clearHighlight();
-  calculateOverlap(hoverX.value, hoverY.value);
+  if (hoverX.value !== null && hoverY.value !== null) {
+    calculateOverlap(hoverX.value, hoverY.value);
+  }
 };
 
 async function pickupPiece(evt, piece, idx) {
