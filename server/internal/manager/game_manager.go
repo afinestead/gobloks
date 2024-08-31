@@ -5,7 +5,6 @@ import (
 	"gobloks/internal/types"
 	"math/rand"
 	"sync"
-	"time"
 )
 
 type GameManager struct {
@@ -19,11 +18,11 @@ func InitGameManager() *GameManager {
 		&sync.Mutex{},
 	}
 
-	go func() {
-		for range time.Tick(time.Hour * 24) {
-			manager.CleanupStale()
-		}
-	}()
+	// go func() {
+	// 	for range time.Tick(time.Hour * 24) {
+	// 		manager.CleanupStale()
+	// 	}
+	// }()
 
 	return manager
 }
