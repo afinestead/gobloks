@@ -18,10 +18,10 @@ func main() {
 	globalGameManager := manager.InitGameManager()
 
 	gid := globalGameManager.CreateGame(types.GameConfig{
-		Players:     1,
-		BlockDegree: 5,
-		Density:     0.9,
-		TurnBased:   false,
+		Players:     2,
+		BlockDegree: 6,
+		Density:     1,
+		TurnBased:   true,
 	})
 	gs, err := globalGameManager.FindGame(gid)
 	if err != nil {

@@ -1,6 +1,6 @@
 <template>
   <v-card
-    class="mx-auto"
+    class="mx-auto my-5"
     width="344"
   >
     <v-card-text>
@@ -58,7 +58,7 @@
           />
         </v-col>
       </v-row>
-      <v-row>
+      <!-- <v-row>
         <v-col cols="4" class="my-auto">
           <v-label>Take turns</v-label>
         </v-col>
@@ -71,7 +71,7 @@
             :disabled="nPlayers < 2"
           />
         </v-col>
-      </v-row>
+      </v-row> -->
     </v-card-text>
     <v-card-actions>
       <v-spacer></v-spacer>
@@ -101,6 +101,7 @@ const nPlayers = ref(4);
 const blockDeg = ref(5);
 const density = ref(0.85);
 const turns = ref(true)
+const timeControl = ref("left");
 
 const rules = ref({
   required: (v) => !!v || "Required",
@@ -115,7 +116,7 @@ function tryCreate() {
     players: parseInt(nPlayers.value),
     degree: parseInt(blockDeg.value),
     density: density.value,
-    turns: turns.value,
+    turns: true,
   }).then((gid) => {
     router.push({ path: '/join', query: { game: gid } });
   }).catch((e) => {

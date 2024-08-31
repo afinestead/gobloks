@@ -10,7 +10,7 @@
 
 <script setup>
 
-import { computed, ref, watch } from 'vue';
+import { computed, ref, onMounted, watch } from 'vue';
 
 const props = defineProps({
   time: Number,
@@ -25,8 +25,13 @@ const timeH  = computed(() => Math.floor(timeM.value / 60));
 
 const timer = ref(null);
 
+onMounted(() => {
+  startTime();
+});
+
 function startTime() {
   clearInterval(timer.value);
+  console.log("start time", props.active, timeInternal.value);
   if (props.active && timeInternal.value > 0) {
     timer.value = setInterval(() => {
       // hold value at 0.1s- 0.0 will be sent by the server
@@ -60,7 +65,7 @@ watch(() => props.active, () => {
 .timer {
   background-color: black;
   color: white;
-  width: 4em;
+  width: 5em;
 }
 
 </style>

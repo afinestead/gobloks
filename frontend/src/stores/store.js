@@ -30,12 +30,9 @@ export const useStore = defineStore("store", {
         },
         setGameActive(active) { this.inGame = active; },
         revokeToken() {
+            this.disconnectSocket();
             this.inGame = false;
             this.token = null;
-            if (this.ws) {
-                this.ws.close();
-                this.ws = null;
-            }
             localStorage.removeItem("accessToken");
         },
         connectSocket() {
@@ -43,6 +40,12 @@ export const useStore = defineStore("store", {
             //       https://stackoverflow.com/questions/4361173/http-headers-in-websockets-client-api
             this.ws = new WebSocket(`ws://${this.apiLocation}/ws?access_token=${this.token}`);
             return this.ws;
+        },
+        disconnectSocket() {
+            if (this.ws) {
+                this.ws.close();
+                this.ws = null;
+            }
         }
     },
 });

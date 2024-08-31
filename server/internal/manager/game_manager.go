@@ -4,14 +4,19 @@ import (
 	"fmt"
 	"gobloks/internal/types"
 	"math/rand"
+	"sync"
 )
 
 type GameManager struct {
 	mangagedGames map[types.GameID]*GameState
+	lock          *sync.Mutex
 }
 
 func InitGameManager() *GameManager {
-	return &GameManager{make(map[types.GameID]*GameState, types.MANAGED_GAMES_START_SIZE)}
+	return &GameManager{
+		make(map[types.GameID]*GameState, types.MANAGED_GAMES_START_SIZE),
+		&sync.Mutex{},
+	}
 }
 
 const letterBytes = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -24,33 +29,41 @@ func createGameID(n uint8) types.GameID {
 	return types.GameID(b)
 }
 
-func (gs *GameManager) CreateGame(config types.GameConfig) types.GameID {
+func (gm *GameManager) CreateGame(config types.GameConfig) types.GameID {
 	var gid types.GameID
+	gm.lock.Lock()
+	defer gm.lock.Unlock()
 	for {
 		gid = createGameID(4)
-		_, ok := gs.mangagedGames[gid]
+		_, ok := gm.mangagedGames[gid]
 		if !ok { // unique game ID
 			break
 		}
 	}
 
-	gs.mangagedGames[gid] = InitGameState(config)
+	gm.mangagedGames[gid] = InitGameState(config)
 
 	return gid
 }
 
-func (gs *GameManager) FindGame(gid types.GameID) (*GameState, error) {
-	game, ok := gs.mangagedGames[gid]
+func (gm *GameManager) FindGame(gid types.GameID) (*GameState, error) {
+	gm.lock.Lock()
+	defer gm.lock.Unlock()
+
+	game, ok := gm.mangagedGames[gid]
 	if !ok {
 		return nil, fmt.Errorf("invalid game id `%s`", gid)
 	}
 	return game, nil
 }
 
-func (gs *GameManager) DeleteGame(gid types.GameID) error {
-	if _, ok := gs.mangagedGames[gid]; !ok {
+func (gm *GameManager) DeleteGame(gid types.GameID) error {
+	gm.lock.Lock()
+	defer gm.lock.Unlock()
+
+	if _, ok := gm.mangagedGames[gid]; !ok {
 		return fmt.Errorf("invalid game id `%s`", gid)
 	}
-	delete(gs.mangagedGames, gid)
+	delete(gm.mangagedGames, gid)
 	return nil
 }

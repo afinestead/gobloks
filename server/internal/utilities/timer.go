@@ -1,7 +1,6 @@
 package utilities
 
 import (
-	"fmt"
 	"sync"
 	"time"
 )
@@ -47,6 +46,7 @@ func (t *Timer) Pause() {
 	// Add bonus time when pausing
 	elapsed := (time.Since(t.start) - t.bonus)
 	t.remaining -= elapsed
+	t.timer = nil
 }
 
 func (t *Timer) Start() {
@@ -54,14 +54,6 @@ func (t *Timer) Start() {
 	defer t.mtx.Unlock()
 
 	t.start = time.Now()
-	if t.timer == nil {
-		// TODO: This is a hack to get the timer to start
-		//       after the initial placement since the time left
-		//       will be less than the previous time
-		fmt.Println(1, t.remaining)
-		t.remaining -= 1
-		fmt.Println(2, t.remaining)
-	}
 	t.timer = time.NewTimer(t.remaining)
 
 	go func() {

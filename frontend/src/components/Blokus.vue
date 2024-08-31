@@ -80,7 +80,7 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, ref, computed, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, computed, watch } from 'vue'
 import BoardSquare from './BoardSquare.vue';
 import Chat from './Chat.vue'
 import Piece from './Piece.vue'
@@ -107,7 +107,7 @@ const gameStatus = ref(0);
 
 const selectedPiece = ref(null);
 const selectedPieceRef = ref(null);
-const selectedPieceOverlap = ref(null);
+const selectedPieceOverlap = ref([]);
 const cursorX = ref(null);
 const offsetX = ref(null);
 const cursorY = ref(null);
@@ -217,20 +217,34 @@ function calculateOverlap(i, j) {
       for (const [x,y] of overlapCoords) {
         const sq = boardHTML.value[x][y];
         sq.classList.add("highlighted");
-
       }
 
       selectedPieceOverlap.value = overlapCoords;
       return;
     }
   }
-  selectedPieceOverlap.value = null;
+  selectedPieceOverlap.value = [];
 }
 
 function onResize() {
   const sq = document.querySelector(".board-square")
   squareSize.value = Math.round(sq.getBoundingClientRect().width);
 };
+
+onBeforeUnmount(() => {
+  store.disconnectSocket();
+
+  window.removeEventListener('resize', onResize);
+  document.onmousemove = null;
+  document.onkeydown = null;
+
+  router.beforeEach((to, from, next) => {
+    console.log('Leaving route:', from.path);
+    console.log('Navigating to:', to.path);
+    store.setGameActive(false);
+    next();
+  });
+});
 
 onMounted(() => {
 
@@ -394,7 +408,7 @@ function dropPiece(discard) {
 
 function placePiece() {
   if (isMyTurn()) {
-    if (selectedPieceOverlap.value !== null) {
+    if (selectedPieceOverlap.value.length > 0) {
       issueBoardUpdate(selectedPieceOverlap.value)
         .then(() => dropPiece(false))
         .catch(() => {});
@@ -410,13 +424,15 @@ function handlePieceClick(evt, piece, idx) {
   }
 };
 
-function clearHighlight(x,y) {
-  document.querySelectorAll(".board-square").forEach(sq => sq.classList.remove("highlighted"));
+function clearHighlight() {
+  for (const [x,y] of selectedPieceOverlap.value) {
+    const sq = boardHTML.value[x][y];
+    sq.classList.remove("highlighted");
+  }
 };
 
 function isMyTurn() {
-  // TODO
-  return true;
+  return whoseTurn.value === playerID.value;
 };
 
 function issueBoardUpdate(piece) {

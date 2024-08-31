@@ -37,19 +37,18 @@ type PlayerProfile struct {
 
 type PlayerState struct {
 	profile     PlayerProfile
-	status      StatusFlags
+	status      types.Flags
 	socket      *SocketConnection
 	playerTimer *utilities.Timer
 	// connectionTimeout *utilities.Timer
-	mtx *sync.Mutex
 }
 
 type GameState struct {
+	lock           *sync.Mutex
 	players        map[types.PlayerID]*PlayerState
-	playersLock    *sync.Mutex
 	board          *game.Board
 	turn           types.PlayerID
-	status         StatusFlags
+	status         types.Flags
 	startingPieces game.PieceSet
 	socketManager  *SocketManager
 	config         types.GameConfig
@@ -77,11 +76,11 @@ func InitGameState(config types.GameConfig) *GameState {
 	}
 
 	return &GameState{
-		playerStates,
 		&sync.Mutex{},
+		playerStates,
 		board,
 		pids[0],
-		StatusFlags{0, &sync.Mutex{}},
+		0,
 		pieces,
 		InitSocketManager(len(pids)),
 		config,
@@ -97,7 +96,6 @@ func (gs *GameState) nextTurn() {
 	}
 
 	var nextUp types.PlayerID = PID_NONE
-	gs.playersLock.Lock()
 	for i := 0; i < len(gs.players); i++ {
 		maybeNext := types.PlayerID((int(gs.turn)+i)%len(gs.players)) + 1
 		// if player is not disabled and has a piece to play, they are next
@@ -109,7 +107,6 @@ func (gs *GameState) nextTurn() {
 			gs.players[maybeNext].status.Set(DISABLED) // No playable pieces, disable player
 		}
 	}
-	gs.playersLock.Unlock()
 
 	fmt.Println("Next up: ", nextUp)
 
@@ -142,158 +139,7 @@ func (gs *GameState) nextTurn() {
 	}
 }
 
-func (gs *GameState) sendGameMessage(msg string) {
-	gs.socketManager.Broadcast(&types.SocketData{
-		Type: CHAT_MESSAGE,
-		Data: &types.ChatMessage{
-			Origin:  types.RESERVED,
-			Message: msg,
-		},
-	})
-}
-
-func (gs *GameState) sendPlayerList() {
-	gs.playersLock.Lock()
-	defer gs.playersLock.Unlock()
-	players := make([]types.PlayerConfig, 0, len(gs.players))
-	for pid, player := range gs.players {
-		if player != nil {
-			player.mtx.Lock()
-			players = append(players, types.PlayerConfig{
-				PID:    pid,
-				Name:   player.profile.Name,
-				Color:  player.profile.Color,
-				Status: player.status.Get(), // TODO: This lock should be unnecessary I think (bc player.mtx)
-				Time:   player.playerTimer.TimeLeftMs(),
-			})
-			player.mtx.Unlock()
-		}
-	}
-
-	gs.socketManager.Broadcast(&types.SocketData{
-		Type: PLAYER_UPDATE,
-		Data: players,
-	})
-}
-
-func (gs *GameState) sendGameStatus() {
-	gs.socketManager.Broadcast(&types.SocketData{
-		Type: GAME_STATUS,
-		Data: &types.PublicGameState{Turn: gs.turn, Status: gs.status.Get()},
-	})
-}
-
-func (gs *GameState) getPlayer(pid types.PlayerID) (*PlayerState, error) {
-	gs.playersLock.Lock()
-	defer gs.playersLock.Unlock()
-	player, ok := gs.players[pid]
-	if !ok {
-		return nil, errors.New("invalid player id")
-	}
-	return player, nil
-}
-
-func (gs *GameState) AddPlayer(name string, color uint) (types.PlayerID, error) {
-	/* Assign the new player a PID, if there is one available */
-	if gs.status.Has(FULL) {
-		return 0, errors.New("game full")
-	}
-
-	gs.playersLock.Lock()
-	defer gs.playersLock.Unlock()
-
-	addedPlayers := 0
-	defer func() {
-		if addedPlayers == len(gs.players) {
-			fmt.Println("Game is full")
-			gs.status.Set(FULL)
-		}
-	}()
-
-	for pid, player := range gs.players {
-		addedPlayers += 1
-		if player == nil { // No player connected at this pid yet
-			gs.players[pid] = &PlayerState{
-				profile: PlayerProfile{
-					Name:   name,
-					Color:  color,
-					Pieces: gs.startingPieces.Copy(),
-				},
-				status: StatusFlags{JOINED, &sync.Mutex{}},
-				socket: nil,
-				playerTimer: utilities.InitTimer(
-					gs.config.TimeControl*1000,
-					gs.config.TimeBonus*1000,
-					gs.handleTimeout,
-					pid,
-				),
-				// connectionTimeout: nil,
-				mtx: &sync.Mutex{},
-			}
-			return pid, nil
-		}
-	}
-
-	// should be unreachable
-	return 0, errors.New("game full")
-}
-
-func (gs *GameState) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) error {
-	player, err := gs.getPlayer(pid)
-	if err != nil {
-		return err
-	}
-
-	if !player.status.Has(JOINED) {
-		return errors.New("invalid player status")
-	}
-
-	player.socket = gs.socketManager.Connect(socket)
-	player.status.Set(CONNECTED)
-
-	// if player.connectionTimeout != nil {
-	// 	player.connectionTimeout.Cancel()
-	// }
-
-	fmt.Println("Connected player ", pid)
-
-	// Send all players the current player list and status to sync up
-	gs.sendPlayerList()
-	gs.sendGameStatus()
-
-	gs.socketManager.Send(player.socket, &types.SocketData{Type: BOARD_STATE, Data: gs.board.GetRaw()})
-
-	var playerPieces []types.PublicPiece
-
-	for piece := range player.profile.Pieces {
-		pieceCoords := piece.ToPoints()
-		piecePoints := make([]types.Point, 0, pieceCoords.Size())
-		for coord := range pieceCoords {
-			piecePoints = append(piecePoints, types.Point{
-				X: int(coord.X),
-				Y: int(coord.Y),
-			})
-		}
-		playerPieces = append(playerPieces, types.PublicPiece{
-			Hash: piece.Hash(),
-			Body: piecePoints,
-		})
-	}
-
-	// Send the player their PID and pieces on connection
-	gs.socketManager.Send(
-		player.socket,
-		&types.SocketData{
-			Type: PRIVATE_GAME_STATE,
-			Data: &types.PrivateGameState{
-				PID:    pid,
-				Pieces: playerPieces,
-			},
-		},
-	)
-
-	gs.sendGameMessage(fmt.Sprintf("%s has joined the game", player.profile.Name))
-
+func (gs *GameState) receiveMessages(player *PlayerState) {
 	for {
 		var inMsg types.SocketData
 		err := gs.socketManager.Recv(player.socket, &inMsg)
@@ -307,10 +153,12 @@ func (gs *GameState) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) e
 	}
 
 	// handle socket disconnection type events
+	gs.lock.Lock()
+	defer gs.lock.Unlock()
 	gs.socketManager.Disconnect(player.socket)
 	player.socket = nil
 	player.status.Clear(CONNECTED)
-	fmt.Println("Disconnected player ", pid)
+	fmt.Println("Disconnected", player.profile.Name)
 	// player.connectionTimeout = utilities.InitTimer(10, 0, func(...any) {
 	// 	player.status = types.JOINED // Remove player from active set
 	// 	gs.sendPlayerList()          // broadcast updated player list
@@ -318,11 +166,156 @@ func (gs *GameState) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) e
 	// 	gs.sendGameMessage(fmt.Sprintf("%s has left the game", player.profile.Name))
 	// })
 	// player.connectionTimeout.Start()
+}
+
+func (gs *GameState) sendGameMessage(msg string) {
+	gs.socketManager.Broadcast(&types.SocketData{
+		Type: CHAT_MESSAGE,
+		Data: &types.ChatMessage{
+			Origin:  types.RESERVED,
+			Message: msg,
+		},
+	})
+}
+
+func (gs *GameState) sendPlayerList() {
+	players := make([]types.PlayerConfig, 0, len(gs.players))
+	for pid, player := range gs.players {
+		if player != nil {
+			players = append(players, types.PlayerConfig{
+				PID:    pid,
+				Name:   player.profile.Name,
+				Color:  player.profile.Color,
+				Status: player.status,
+				Time:   player.playerTimer.TimeLeftMs(),
+			})
+		}
+	}
+
+	gs.socketManager.Broadcast(&types.SocketData{
+		Type: PLAYER_UPDATE,
+		Data: players,
+	})
+}
+
+func (gs *GameState) sendGameStatus() {
+	gs.socketManager.Broadcast(&types.SocketData{
+		Type: GAME_STATUS,
+		Data: &types.PublicGameState{Turn: gs.turn, Status: gs.status},
+	})
+}
+
+func (gs *GameState) getPlayer(pid types.PlayerID) (*PlayerState, error) {
+	player, ok := gs.players[pid]
+	if !ok {
+		return nil, errors.New("invalid player id")
+	}
+	return player, nil
+}
+
+func (gs *GameState) AddPlayer(name string, color uint) (types.PlayerID, error) {
+	/* Assign the new player a PID, if there is one available */
+	gs.lock.Lock()
+	defer gs.lock.Unlock()
+
+	if gs.status.Has(FULL) {
+		return 0, errors.New("game full")
+	}
+
+	var pid int
+	for pid = 1; pid <= len(gs.players); pid++ {
+		if gs.players[types.PlayerID(pid)] == nil {
+			gs.players[types.PlayerID(pid)] = &PlayerState{
+				profile: PlayerProfile{
+					Name:   name,
+					Color:  color,
+					Pieces: gs.startingPieces.Copy(),
+				},
+				status: JOINED,
+				socket: nil,
+				playerTimer: utilities.InitTimer(
+					gs.config.TimeControl*1000,
+					gs.config.TimeBonus*1000,
+					gs.handleTimeout,
+					types.PlayerID(pid),
+				),
+				// connectionTimeout: nil,
+			}
+			break
+		}
+	}
+
+	fmt.Println("Added player ", pid)
+
+	if pid == len(gs.players) {
+		fmt.Println("Game is full")
+		gs.status.Set(FULL)
+	}
+
+	return types.PlayerID(pid), nil
+}
+
+func (gs *GameState) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) error {
+	gs.lock.Lock()
+	defer gs.lock.Unlock()
+
+	player, err := gs.getPlayer(pid)
+	if err != nil {
+		return err
+	}
+
+	if !player.status.Has(JOINED) {
+		return errors.New("invalid player status")
+	}
+
+	player.socket = gs.socketManager.Connect(socket)
+	player.status.Set(CONNECTED)
+	fmt.Println(player.status)
+
+	// begin receiving messages on this socket
+	go gs.receiveMessages(player)
+
+	// if player.connectionTimeout != nil {
+	// 	player.connectionTimeout.Cancel()
+	// }
+
+	fmt.Println("Connected player ", pid)
+
+	var playerPieces []types.PublicPiece
+
+	for piece := range player.profile.Pieces {
+		pieceCoords := piece.ToPoints()
+		piecePoints := make([]types.Point, 0, pieceCoords.Size())
+		for coord := range pieceCoords {
+			piecePoints = append(piecePoints, types.Point{X: int(coord.X), Y: int(coord.Y)})
+		}
+		playerPieces = append(playerPieces, types.PublicPiece{
+			Hash: piece.Hash(),
+			Body: piecePoints,
+		})
+	}
+
+	// Send all players the current player list and status to sync up
+	gs.sendPlayerList()
+	gs.sendGameStatus()
+	// Send the player their PID, pieces, and current board on connection
+	gs.socketManager.Send(
+		player.socket,
+		&types.SocketData{
+			Type: PRIVATE_GAME_STATE,
+			Data: &types.PrivateGameState{PID: pid, Pieces: playerPieces},
+		},
+	)
+	gs.socketManager.Send(player.socket, &types.SocketData{Type: BOARD_STATE, Data: gs.board.GetRaw()})
+	gs.sendGameMessage(fmt.Sprintf("%s has joined the game", player.profile.Name))
 
 	return nil
 }
 
 func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) error {
+	gs.lock.Lock()
+	defer gs.lock.Unlock()
+
 	player, err := gs.getPlayer(pid)
 	if err != nil {
 		return err
@@ -357,6 +350,9 @@ func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) e
 		return err
 	}
 
+	fmt.Println("PID", pid)
+	fmt.Println("placed piece at", origin, piece.ToString())
+
 	gs.status.Set(IN_PROGRESS)
 
 	gs.socketManager.Broadcast(&types.SocketData{Type: BOARD_STATE, Data: gs.board.GetRaw()})
@@ -374,8 +370,6 @@ func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) e
 }
 
 func (gs *GameState) determineWinners() []string {
-	gs.playersLock.Lock()
-	defer gs.playersLock.Unlock()
 	winners := make([]string, 0, len(gs.players))
 	minScore := 0xffffffff
 	for _, player := range gs.players {
@@ -395,6 +389,9 @@ func (gs *GameState) determineWinners() []string {
 }
 
 func (gs *GameState) handleTimeout(args ...any) {
+	gs.lock.Lock()
+	defer gs.lock.Unlock()
+
 	pid := args[0].(types.PlayerID)
 	player, _ := gs.getPlayer(pid)
 	player.status.Set(TIMED_OUT | DISABLED)
