@@ -1,5 +1,5 @@
 <template>
-  <div class="timer px-4 text-center">
+  <div :class="['timer', 'px-4', 'text-center', {hidden: hide}]">
     <span v-if="timeH > 0">{{ timeH.toFixed(0) }}:{{ timeM }}:{{ timeS.toFixed(0) }}</span>
     <span v-else-if="timeM > 0">{{ timeM }}:{{ (timeS % 60).toString(10).padStart(2, '0') }}</span>
     <span v-else-if="timeS >= 20">0:{{ timeS.toFixed(0) }}</span>
@@ -14,7 +14,8 @@ import { computed, ref, onMounted, watch } from 'vue';
 
 const props = defineProps({
   time: Number,
-  active: Boolean
+  active: Boolean,
+  hide: Boolean
 });
 
 const timeInternal = ref(props.time);
@@ -66,6 +67,10 @@ watch(() => props.active, () => {
   background-color: black;
   color: white;
   width: 5em;
+}
+
+.hidden {
+  visibility: hidden;
 }
 
 </style>

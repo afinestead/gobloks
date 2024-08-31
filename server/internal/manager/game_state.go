@@ -129,6 +129,12 @@ func (gs *GameState) nextTurn() {
 		gs.sendGameMessage(winString)
 		gs.turn = PID_NONE
 		gs.status.Set(COMPLETE)
+		// Stop all player timers
+		for _, player := range gs.players {
+			if gs.config.TimeControl > 0 {
+				player.playerTimer.Cancel()
+			}
+		}
 	} else {
 		gs.turn = nextUp
 		// Start next players timer

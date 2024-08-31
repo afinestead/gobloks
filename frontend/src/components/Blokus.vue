@@ -1,7 +1,4 @@
 <template>
-  <!-- TODO:
-  If a piece is rotated/flipped while hovering, the highlighting doesn't update
-  -->
   <v-container class="fill-height" fluid min-height="480">
 
     <v-row class="gameplay-area fill-height">
@@ -27,7 +24,8 @@
               :key="j"
               :owner="pid"
               :color="allPlayers[pid&0xffff]?.color"
-              @mouseover="calculateOverlap(i, j)"
+              @mouseover="hoverX = i; hoverY = j; calculateOverlap(i, j)"
+              @mouseout="clearHighlight()"
             />
           </div>
         </div>
@@ -42,6 +40,7 @@
         >
           <template v-slot:timer>
             <timer
+              :hide="((player.status&(1<<3)) === 0) && player.time === 0"
               :time="player.time"
               :active="whoseTurn === player.pid && (gameStatus & 0b111) == 0b011"
             />
@@ -108,6 +107,10 @@ const gameStatus = ref(0);
 const selectedPiece = ref(null);
 const selectedPieceRef = ref(null);
 const selectedPieceOverlap = ref([]);
+
+const hoverX = ref(null);
+const hoverY = ref(null);
+
 const cursorX = ref(null);
 const offsetX = ref(null);
 const cursorY = ref(null);
@@ -200,9 +203,6 @@ function calculateOverlap(i, j) {
     }
     
     const overlapCoords = GetOverlapCoords();
-
-    // TODO: be smarter about recomputing css
-    clearHighlight();
 
     if (
       overlapCoords !== null &&
@@ -373,9 +373,12 @@ function snapPieceToCursor() {
     Math.floor(parseInt(snappedToBlock.style.top) / squareSize.value),
     Math.floor(parseInt(snappedToBlock.style.left) / squareSize.value),
   ];
-  };
 
-  async function pickupPiece(evt, piece, idx) {
+  clearHighlight();
+  calculateOverlap(hoverX.value, hoverY.value);
+};
+
+async function pickupPiece(evt, piece, idx) {
   const block = evt.target.parentElement;
   if (!block.classList.contains("piece")) {
     return;

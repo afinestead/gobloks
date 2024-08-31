@@ -30,13 +30,15 @@ func InitTimer(ms, bonus uint, callback func(args ...any), args ...any) *Timer {
 }
 
 func (t *Timer) Cancel() bool {
-	return t.timer.Stop()
+	ok := t.timer.Stop()
+	t.timer = nil
+	return ok
 }
 
 func (t *Timer) Pause() {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
-	if t.timer == nil { // for initial start
+	if t.timer == nil {
 		return
 	}
 
