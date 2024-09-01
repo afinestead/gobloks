@@ -443,7 +443,9 @@ func (gs *GameState) handleTimeout(args ...any) {
 	pid := args[0].(types.PlayerID)
 	player, _ := gs.getPlayer(pid)
 	player.status.Set(TIMED_OUT | DISABLED)
-	player.connectionTimeout.Cancel()
+	if player.connectionTimeout != nil {
+		player.connectionTimeout.Cancel()
+	}
 	gs.nextTurn()
 	gs.sendPlayerList()
 	gs.sendGameStatus()
