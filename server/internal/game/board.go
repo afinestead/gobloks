@@ -167,6 +167,9 @@ func (b *Board) validPlacement(origin types.Point, p Piece, owner types.Owner) b
 		if !b.inbounds(absPt) {
 			return false
 		}
+		if !b.vacant(absPt) {
+			return false
+		}
 		if b.hasSelfSide(absPt, owner) {
 			return false
 		}

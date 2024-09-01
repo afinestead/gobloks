@@ -5,6 +5,7 @@
         v-model="gameId"
         label="Game ID"
         placeholder="GAME"
+        maxlength="4"
         @input="gameId = gameId.toUpperCase(); errorMessage = ''"
         :error="errorMessage.length !== 0"
         :error-messages="errorMessage"
@@ -12,6 +13,7 @@
       />
       <v-text-field
         v-model="playerName"
+        maxlength="32"
         label="Name yourself"
         @keydown.enter="tryJoin"
       >
