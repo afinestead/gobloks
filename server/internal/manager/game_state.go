@@ -137,7 +137,7 @@ func (gs *GameState) nextTurn() {
 
 	if nextUp == PID_NONE {
 		winners := gs.determineWinners()
-		winString := "Game over\n"
+		var winString string
 		if len(winners) > 1 {
 			for i := 0; i < len(winners)-1; i++ {
 				winString += winners[i]
@@ -151,6 +151,7 @@ func (gs *GameState) nextTurn() {
 		} else {
 			winString = winners[0] + " wins!"
 		}
+		gs.sendGameMessage("Game over!")
 		gs.sendGameMessage(winString)
 		gs.turn = PID_NONE
 		gs.status.Set(COMPLETE)

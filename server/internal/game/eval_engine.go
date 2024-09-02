@@ -12,8 +12,6 @@ func (b *Board) getPlacements(owner types.Owner, pieces PieceSet, first bool) ut
 
 	res := utilities.NewSet([]PlacementInternal{})
 
-	tmpPieces := pieces.Copy()
-
 	var wg sync.WaitGroup
 	var firstClose sync.Once
 	chDone := make(chan struct{})
@@ -22,9 +20,9 @@ func (b *Board) getPlacements(owner types.Owner, pieces PieceSet, first bool) ut
 	findPiecePlacement := func(pt types.Point, piece Piece) {
 		attemptedPieces := utilities.NewSet([]Piece{}, 8)
 		for j := 0; j < 2; j++ {
-			piece.Reflect(types.X)
+			piece = piece.Reflect(types.X)
 			for i := 0; i < 4; i++ {
-				piece.Rotate90()
+				piece = piece.Rotate90()
 				if attemptedPieces.Has(piece) {
 					continue // Already tried this one
 				}
@@ -73,7 +71,7 @@ func (b *Board) getPlacements(owner types.Owner, pieces PieceSet, first bool) ut
 		placementFinder = originPlacementFinder
 	}
 
-	for piece := range tmpPieces {
+	for piece := range pieces {
 		wg.Add(1)
 		go placementFinder(piece)
 	}

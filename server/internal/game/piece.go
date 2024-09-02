@@ -41,10 +41,10 @@ func NewPiece(piece uint64) Piece {
 	p := Piece{piece, piece}
 
 	for ii := 0; ii < 2; ii++ { // Reflect twice
-		p.Reflect(types.X)
+		p = p.Reflect(types.X)
 
 		for jj := 0; jj < 4; jj++ { // Rotate 4x
-			p.Rotate90()
+			p = p.Rotate90()
 			if p.repr < p.hash { // take only the lowest hash
 				p.hash = p.repr
 			}
@@ -75,11 +75,12 @@ func (p Piece) Size() uint8 {
 	return uint8(bits.OnesCount64(p.hash))
 }
 
-func (p *Piece) Rotate90() {
+func (p Piece) Rotate90() Piece {
 	p.repr = rotate64(p.repr)
+	return p
 }
 
-func (p *Piece) Reflect(ax types.Axis) {
+func (p Piece) Reflect(ax types.Axis) Piece {
 	var ii uint8
 	var ref uint64
 
@@ -91,10 +92,12 @@ func (p *Piece) Reflect(ax types.Axis) {
 		}
 	}
 	p.repr = ref
+	return p
 }
 
-func (p *Piece) Normalize() {
+func (p Piece) Normalize() Piece {
 	p.repr = normalize64(p.repr)
+	return p
 }
 
 func (p *Piece) Corners() []types.Point {
