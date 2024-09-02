@@ -71,6 +71,7 @@ func Start(port uint, production bool) {
 	router.POST("/create", createGame)
 	router.POST("/join", joinGame)
 	router.PUT("/place", placePiece)
+	router.GET("/hint", getHint)
 	router.GET("/ws", handleWebsocket)
 
 	router.Run(fmt.Sprintf("0.0.0.0:%d", port))

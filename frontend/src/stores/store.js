@@ -28,6 +28,9 @@ export const useStore = defineStore("store", {
         async placePiece(placement) {
             return this.api.place(this.token, placement);
         },
+        async requestHint() {
+            return this.api.hint(this.token);
+        },
         setGameActive(active) { this.inGame = active; },
         revokeToken() {
             this.disconnectSocket();

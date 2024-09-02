@@ -10,19 +10,25 @@ import (
 type GameManager struct {
 	mangagedGames map[types.GameID]*GameState
 	lock          *sync.Mutex
+	cleanupChan   chan types.GameID
 }
 
 func InitGameManager() *GameManager {
 	manager := &GameManager{
 		make(map[types.GameID]*GameState, types.MANAGED_GAMES_START_SIZE),
 		&sync.Mutex{},
+		make(chan types.GameID),
 	}
 
-	// go func() {
-	// 	for range time.Tick(time.Hour * 24) {
-	// 		manager.CleanupStale()
-	// 	}
-	// }()
+	go func() {
+		for {
+			cleanupGame := <-manager.cleanupChan
+			fmt.Println("cleaned up game", cleanupGame)
+			manager.lock.Lock()
+			delete(manager.mangagedGames, cleanupGame)
+			manager.lock.Unlock()
+		}
+	}()
 
 	return manager
 }
@@ -49,7 +55,7 @@ func (gm *GameManager) CreateGame(config types.GameConfig) types.GameID {
 		}
 	}
 
-	gm.mangagedGames[gid] = InitGameState(config)
+	gm.mangagedGames[gid] = InitGameState(gid, config, &gm.cleanupChan)
 
 	return gid
 }
@@ -75,16 +81,4 @@ func (gm *GameManager) ListGames() []types.GameID {
 		gids = append(gids, gid)
 	}
 	return gids
-}
-
-func (gm *GameManager) CleanupStale() {
-	gm.lock.Lock()
-	defer gm.lock.Unlock()
-	fmt.Println("cleaning up stale games")
-	for gid := range gm.mangagedGames {
-		if gm.mangagedGames[gid].IsStale() {
-			fmt.Println("cleaned up stale game", gid)
-			delete(gm.mangagedGames, gid)
-		}
-	}
 }

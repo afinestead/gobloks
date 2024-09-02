@@ -30,6 +30,7 @@ type GameConfig struct {
 	TurnBased   bool    `json:"turns"`
 	TimeControl uint    `json:"timeSeconds"`
 	TimeBonus   uint    `json:"timeBonus"`
+	Hints       uint    `json:"hints"`
 }
 
 type PlayerConfig struct {
@@ -48,6 +49,7 @@ type ChatMessage struct {
 type PrivateGameState struct {
 	PID    PlayerID      `json:"pid"`
 	Pieces []PublicPiece `json:"pieces"`
+	Hints  uint          `json:"hints"`
 }
 
 type PublicGameState struct {

@@ -177,7 +177,7 @@ func (b *Board) validPlacement(origin types.Point, p Piece, owner types.Owner) b
 			return false
 		}
 
-		cornerExists := b.hasCorner(absPt, owner)
+		cornerExists := b.HasCorner(absPt, owner)
 		startingSq := b.isStartingSquare(absPt, owner)
 
 		validCorner = validCorner || startingSq || cornerExists
@@ -197,7 +197,7 @@ func (b *Board) hasSelfSide(pt types.Point, owner types.Owner) bool {
 		(b.inbounds(d) && b.occupiedByPlayer(d, owner)))
 }
 
-func (b *Board) hasCorner(pt types.Point, owner types.Owner) bool {
+func (b *Board) HasCorner(pt types.Point, owner types.Owner) bool {
 	ul := pt.GetAdjacent(types.UP).GetAdjacent(types.LEFT)
 	ur := pt.GetAdjacent(types.UP).GetAdjacent(types.RIGHT)
 	dl := pt.GetAdjacent(types.DOWN).GetAdjacent(types.LEFT)
@@ -228,18 +228,21 @@ func (b *Board) Place(origin types.Point, p Piece, owner types.Owner) (bool, err
 	return true, nil
 }
 
-func (b *Board) HasPlacement(owner types.Owner, pieces PieceSet) bool {
+func (b *Board) GetPossiblePlacement(owner types.Owner, pieces PieceSet) (types.Placement, error) {
 	plc := b.getPlacements(owner, pieces, true)
 
 	for p := range plc {
 		fmt.Println(p.origin, p.piece.ToString())
-		break
+		coords := make([]types.Point, 0, p.piece.Size())
+		for pt := range p.piece.ToPoints() {
+			coords = append(coords, p.origin.Translate(int(pt.X), int(pt.Y)))
+		}
+		return types.Placement{Coordinates: coords}, nil
 	}
 
-	// fmt.Println("placements", plc.Size())
-	return plc.Size() > 0
+	return types.Placement{}, errors.New("no placements found")
 }
 
-func (b *Board) GetPlacements(owner types.Owner, pieces PieceSet) utilities.Set[PlacementInternal] {
+func (b *Board) GetAllPlacements(owner types.Owner, pieces PieceSet) utilities.Set[PlacementInternal] {
 	return b.getPlacements(owner, pieces, false)
 }

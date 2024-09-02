@@ -17,6 +17,15 @@
       </v-col>
 
       <v-col cols="9" class="panel board-view bordered">
+        <div class="hint-btn">
+          <v-btn
+            :color="allPlayers[playerID]?.color || '#ffffff'"
+            @click.stop="getHint"
+            :disabled="hints <= 0 || hintRequested"
+          >
+            Hint
+          </v-btn>
+        </div>
         <div class="board fill-height mx-auto" ref="boardRef">
           <div v-for="row, i in board" :key="i" class="board-row">
             <board-square
@@ -107,6 +116,10 @@ const gameStatus = ref(0);
 const selectedPiece = ref(null);
 const selectedPieceRef = ref(null);
 const selectedPieceOverlap = ref([]);
+
+const hints = ref(0);
+const hintRequested = ref(false);
+const hintCoords = ref([]);
 
 const hoverX = ref(null);
 const hoverY = ref(null);
@@ -307,6 +320,7 @@ onMounted(() => {
       case MessageType.PrivateGameState:
         playerID.value = msg.data.pid; 
         myPieces.value = msg.data.pieces.sort((p1,p2) => p1.hash - p2.hash);
+        hints.value = msg.data.hints;
         break;
       
       case MessageType.GameStatus:
@@ -415,7 +429,10 @@ function placePiece() {
   if (isMyTurn()) {
     if (selectedPieceOverlap.value.length > 0) {
       issueBoardUpdate(selectedPieceOverlap.value)
-        .then(() => dropPiece(false))
+        .then(() => {
+          clearHint();
+          dropPiece(false);
+        })
         .catch(() => {});
     }
   }
@@ -436,6 +453,14 @@ function clearHighlight() {
   }
 };
 
+function clearHint() {
+  hintRequested.value = false;
+  for (const [x,y] of hintCoords.value) {
+    const sq = boardHTML.value[x][y];
+    sq.classList.remove("hinted");
+  }
+};
+
 function isMyTurn() {
   return whoseTurn.value === playerID.value;
 };
@@ -446,6 +471,20 @@ function issueBoardUpdate(piece) {
     placement.push({x:x, y:y});
   }
   return store.placePiece(placement);
+};
+
+function getHint() {
+  store.requestHint()
+    .then((hint) => {
+      hintRequested.value = true;
+      hints.value -= 1;
+      hintCoords.value = [[hint.data.x, hint.data.y]];      
+      for (const [x,y] of hintCoords.value) {
+        const sq = boardHTML.value[x][y];
+        sq.classList.add("hinted");
+      }
+    })
+    .catch(() => {});
 };
 
 watch(selectedPiece, (newPiece) => {
@@ -485,6 +524,7 @@ watch(selectedPiece, (newPiece) => {
 }
 
 .board-view {
+  position: relative;
   overflow-x: auto;
 }
 
@@ -500,8 +540,18 @@ watch(selectedPiece, (newPiece) => {
   display: flex;
 }
 
+.hint-btn {
+  padding: 0 1em;
+  position: absolute;
+  right: 0;
+}
+
 .highlighted {
-  border-color: yellow;
+  border-color: yellow !important;
+}
+
+.hinted {
+  border-color: greenyellow;
 }
 
 .selected-piece {

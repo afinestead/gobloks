@@ -43,9 +43,12 @@ type PlayerState struct {
 	socket            *SocketConnection
 	playerTimer       *utilities.Timer
 	connectionTimeout *utilities.Timer
+	possiblePlacement types.Placement
+	hints             uint
 }
 
 type GameState struct {
+	gid            types.GameID
 	lock           *sync.Mutex
 	players        map[types.PlayerID]*PlayerState
 	board          *game.Board
@@ -55,9 +58,10 @@ type GameState struct {
 	socketManager  *SocketManager
 	config         types.GameConfig
 	lastActive     time.Time
+	chDone         *chan types.GameID
 }
 
-func InitGameState(config types.GameConfig) *GameState {
+func InitGameState(gid types.GameID, config types.GameConfig, gameCompleteChan *chan types.GameID) *GameState {
 
 	pieces, setPixels, err := game.GeneratePieceSet(config.BlockDegree) // TODO: cache
 	if err != nil {
@@ -79,6 +83,7 @@ func InitGameState(config types.GameConfig) *GameState {
 	}
 
 	return &GameState{
+		gid,
 		&sync.Mutex{},
 		playerStates,
 		board,
@@ -88,6 +93,7 @@ func InitGameState(config types.GameConfig) *GameState {
 		InitSocketManager(len(pids)),
 		config,
 		time.Now(),
+		gameCompleteChan,
 	}
 }
 
@@ -115,12 +121,15 @@ func (gs *GameState) nextTurn() {
 	for i := 0; i < len(gs.players); i++ {
 		maybeNext := types.PlayerID((int(gs.turn)+i)%len(gs.players)) + 1
 		// if player is not disabled and has a piece to play, they are next
-		if !gs.players[maybeNext].status.Has(DISABLED) &&
-			gs.board.HasPlacement(types.Owner(maybeNext), gs.players[maybeNext].profile.Pieces) {
-			nextUp = maybeNext
-			break
-		} else {
-			gs.players[maybeNext].status.Set(DISABLED) // No playable pieces, disable player
+		if !gs.players[maybeNext].status.Has(DISABLED) {
+			maybePlacement, err := gs.board.GetPossiblePlacement(types.Owner(maybeNext), gs.players[maybeNext].profile.Pieces)
+			if err == nil {
+				gs.players[maybeNext].possiblePlacement = maybePlacement
+				nextUp = maybeNext
+				break
+			} else {
+				gs.players[maybeNext].status.Set(DISABLED) // No playable pieces, disable player
+			}
 		}
 	}
 
@@ -273,6 +282,8 @@ func (gs *GameState) AddPlayer(name string, color uint) (types.PlayerID, error) 
 					types.PlayerID(pid),
 				),
 				connectionTimeout: nil,
+				possiblePlacement: types.Placement{},
+				hints:             gs.config.Hints,
 			}
 			break
 		}
@@ -337,7 +348,7 @@ func (gs *GameState) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) e
 		player.socket,
 		&types.SocketData{
 			Type: PRIVATE_GAME_STATE,
-			Data: &types.PrivateGameState{PID: pid, Pieces: playerPieces},
+			Data: &types.PrivateGameState{PID: pid, Pieces: playerPieces, Hints: player.hints},
 		},
 	)
 	gs.socketManager.Send(player.socket, &types.SocketData{Type: BOARD_STATE, Data: gs.board.GetRaw()})
@@ -355,16 +366,9 @@ func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) e
 		return err
 	}
 
-	if gs.config.TurnBased && gs.turn != pid {
-		return errors.New("not your turn")
-	}
-
-	if player.status.Has(TIMED_OUT) {
-		return errors.New("player time expired")
-	}
-
-	if !gs.status.Has(FULL) {
-		return errors.New("waiting for all players")
+	_, err = gs.playerActionValid(player)
+	if err != nil {
+		return err
 	}
 
 	// convert placement to Piece/origin
@@ -403,6 +407,51 @@ func (gs *GameState) PlacePiece(pid types.PlayerID, placement types.Placement) e
 	gs.sendGameStatus()
 
 	return nil
+}
+
+func (gs *GameState) GetHint(pid types.PlayerID) (types.Point, error) {
+	gs.lock.Lock()
+	defer gs.lock.Unlock()
+
+	player, err := gs.getPlayer(pid)
+	if err != nil {
+		return types.Point{}, err
+	}
+
+	_, err = gs.playerActionValid(player)
+	if err != nil {
+		return types.Point{}, err
+	}
+
+	if player.hints == 0 {
+		return types.Point{}, errors.New("no more hints")
+	}
+
+	player.hints -= 1
+
+	for _, pt := range player.possiblePlacement.Coordinates {
+		if gs.board.HasCorner(pt, types.Owner(pid)) {
+			return pt, nil
+		}
+	}
+
+	return types.Point{}, errors.New("no corners")
+}
+
+func (gs *GameState) playerActionValid(player *PlayerState) (bool, error) {
+	if gs.config.TurnBased && gs.turn != player.pid {
+		return false, errors.New("not your turn")
+	}
+
+	if player.status.Has(TIMED_OUT | DISABLED) {
+		return false, errors.New("player inactive")
+	}
+
+	if !gs.status.Has(FULL) {
+		return false, errors.New("waiting for all players")
+	}
+
+	return true, nil
 }
 
 func (gs *GameState) calculateScores() (map[*PlayerState]int, int) {

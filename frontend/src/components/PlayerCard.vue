@@ -2,7 +2,7 @@
   <v-card
     v-if="player.name"
     :title="player.name"
-    :class="['mx-auto', 'my-5', {highlight: myTurn}]"
+    :class="['mx-auto', 'mb-5', {highlight: myTurn}]"
     :color="`${player.color}50`"
     :disabled="!isActive"
     :variant="myTurn ? 'elevated' : 'flat'"

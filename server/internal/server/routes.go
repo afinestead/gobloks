@@ -86,3 +86,22 @@ func placePiece(c *gin.Context) {
 		return
 	}
 }
+
+func getHint(c *gin.Context) {
+	g := c.MustGet("manager").(*manager.GameManager)
+	gid := c.MustGet("gid").(types.GameID)
+	gs, err := g.FindGame(gid)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, fmt.Sprintf("no game %s", gid))
+		return
+	}
+
+	pid := c.MustGet("pid").(types.PlayerID)
+	hint, err := gs.GetHint(pid)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusConflict, err)
+		return
+	}
+
+	c.IndentedJSON(http.StatusOK, hint)
+}

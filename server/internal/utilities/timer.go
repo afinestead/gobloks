@@ -32,6 +32,7 @@ func InitTimer(ms, bonus uint, callback func(args ...any), args ...any) *Timer {
 func (t *Timer) Cancel() bool {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
+
 	ok := true
 	if t.timer != nil {
 		ok = t.timer.Stop()
