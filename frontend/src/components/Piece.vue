@@ -78,8 +78,10 @@ onMounted(() => {
 watch(() => props.blocks, (newBlocks) => blocksInternal.value = newBlocks);
 
 function handlePieceClick(evt) {
+  const invert = evt.ctrlKey;
+  
   if (evt.button === 2) {
-    flipPiece("x");
+    flipPiece(invert ? "y" : "x");
   } else {
     clicks.value++;
     if (clicks.value === 1) {
@@ -89,7 +91,7 @@ function handlePieceClick(evt) {
       }, dblClickDelay);
     } else {
       // Double click
-      rotatePiece(90);
+      rotatePiece(invert ? -90 : 90);
       clearTimeout(clickTimer.value);
       emit("change");
       clicks.value = 0;
