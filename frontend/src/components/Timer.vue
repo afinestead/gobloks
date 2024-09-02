@@ -45,17 +45,12 @@ function startTime() {
 }
 
 watch(() => props.time, () => {
-  clearInterval(timer.value);
   timeInternal.value = props.time;
   startTime(); // for 1 player games
 });
 
 watch(() => props.active, () => {
-  if (!props.active) {
-      clearInterval(timer.value);
-  } else {
-    startTime();
-  }
+  startTime();
 });
 
 

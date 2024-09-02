@@ -27,7 +27,7 @@ const props = defineProps({
 });
 
 const connected = computed(() => (props.player.status & (1<<1)) !== 0);
-const isActive = computed(() => (props.player.status & (1<<2)) !== 0);
+const isActive = computed(() => (props.player.status & (1<<2)) === 0);
 
 
 </script>

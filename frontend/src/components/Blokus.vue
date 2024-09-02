@@ -42,7 +42,7 @@
 
       <v-col cols="2" class="panel players bordered">
         <player-card
-          v-for="player, idx in allPlayers"
+          v-for="player, idx in playerOrder"
           :key="idx"
           :player="player"
           :myTurn="whoseTurn === player.pid"
@@ -108,7 +108,24 @@ const boardSize = ref(0);
 const boardRef = ref(null)
 const myPieces = ref([]);
 const pieceDeck = ref(null);
+
 const allPlayers = ref([]);
+const playerOrder = computed(() => {
+  let sorted = []
+  for (const pid in allPlayers.value) {
+    let order = pid - whoseTurn.value
+    if (order < 0) {
+      order += Object.keys(allPlayers.value).length
+    }
+    allPlayers.value[pid].order = order
+    sorted.push(allPlayers.value[pid])
+  }
+  sorted.sort((p1,p2) => p1.order - p2.order)
+  console.log(sorted);
+  
+  return sorted
+});
+
 const playerID = ref(null);
 const whoseTurn = ref(null);
 const gameStatus = ref(0);

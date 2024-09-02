@@ -158,7 +158,7 @@ func (gs *GameState) nextTurn() {
 		// Stop all player timers
 		for _, player := range gs.players {
 			if gs.config.TimeControl > 0 {
-				player.playerTimer.Cancel()
+				player.playerTimer.Pause()
 			}
 		}
 	} else {
@@ -199,7 +199,7 @@ func (gs *GameState) receiveMessages(player *PlayerState) {
 		gs.lock.Lock()
 		defer gs.lock.Unlock()
 		player.status.Set(DISABLED) // Remove player from active set
-		player.playerTimer.Cancel() // stop timer if applicable
+		player.playerTimer.Pause()  // stop timer if applicable
 		if gs.turn == player.pid {
 			gs.nextTurn() // advance turn if necessary
 		}
@@ -316,13 +316,12 @@ func (gs *GameState) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) e
 
 	player.socket = gs.socketManager.Connect(socket)
 	player.status.Set(CONNECTED)
-	fmt.Println(player.status)
 
 	// begin receiving messages on this socket
 	go gs.receiveMessages(player)
 
 	if player.connectionTimeout != nil {
-		player.connectionTimeout.Cancel()
+		player.connectionTimeout.Pause()
 	}
 
 	fmt.Println("Connected player ", pid)
@@ -494,7 +493,7 @@ func (gs *GameState) handleTimeout(args ...any) {
 	player, _ := gs.getPlayer(pid)
 	player.status.Set(TIMED_OUT | DISABLED)
 	if player.connectionTimeout != nil {
-		player.connectionTimeout.Cancel()
+		player.connectionTimeout.Pause()
 	}
 	gs.nextTurn()
 	gs.sendPlayerList()
