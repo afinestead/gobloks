@@ -252,8 +252,6 @@ onBeforeUnmount(() => {
   document.onkeydown = null;
 
   router.beforeEach((to, from, next) => {
-    console.log('Leaving route:', from.path);
-    console.log('Navigating to:', to.path);
     store.setGameActive(false);
     next();
   });

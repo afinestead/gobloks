@@ -1,7 +1,5 @@
 
 import ApiClient from "./ApiClient";
-import AccessToken from "./model/AccessToken";
-import PlayerProfile from "./model/PlayerProfile";
 
 export default class DefaultApi {
  
@@ -43,7 +41,7 @@ export default class DefaultApi {
     return this.apiClient.callApi(
       '/join', 'POST',
       pathParams, queryParams, headerParams, formParams, postBody,
-      authNames, contentTypes, accepts, AccessToken, null
+      authNames, contentTypes, accepts, String, null
     );
   };
 

@@ -14,7 +14,7 @@
 
 import ApiClient from './ApiClient';
 import DefaultApi from './DefaultApi';
-import MessageType from './model/MessageTypes';
+import MessageType from './MessageTypes';
 
 export {
     ApiClient,

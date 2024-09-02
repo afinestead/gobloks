@@ -93,9 +93,9 @@ func (b *Board) getPlacements(owner types.Owner, pieces PieceSet, first bool) ut
 }
 
 func (b *Board) findTerritory(o types.Owner) []types.Point {
-	territory := make([]types.Point, 0, b.MaxX*b.MaxY)
-	for ii := 0; ii < int(b.MaxX); ii++ {
-		for jj := 0; jj < int(b.MaxY); jj++ {
+	territory := make([]types.Point, 0, b.maxX*b.maxY)
+	for ii := 0; ii < int(b.maxX); ii++ {
+		for jj := 0; jj < int(b.maxY); jj++ {
 			if b.occupiedByPlayer(types.Point{X: ii, Y: jj}, o) {
 				territory = append(territory, types.Point{X: ii, Y: jj})
 			}
@@ -108,7 +108,7 @@ func (b *Board) findCorners(owner types.Owner) []types.Point {
 	territory := b.findTerritory(owner)
 	fmt.Println("territory ", territory)
 
-	corners := make([]types.Point, 0, b.MaxX*b.MaxY)
+	corners := make([]types.Point, 0, b.maxX*b.maxY)
 	for _, pt := range territory {
 		corners = append(corners, b.getFreeCorners(pt, owner)...)
 	}

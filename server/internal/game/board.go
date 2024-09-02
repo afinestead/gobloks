@@ -12,7 +12,7 @@ import (
 type Board struct {
 	layout     [][]types.Owner
 	origins    map[types.PlayerID]types.Point
-	MaxX, MaxY uint
+	maxX, maxY uint
 }
 
 // TODO: Put this somewhere that makes sense
@@ -41,8 +41,8 @@ func NewBoard(players []types.PlayerID, pixelsPerPlayer uint, tighteningFactor f
 	board := Board{
 		layout:  make([][]types.Owner, diameter),
 		origins: make(map[types.PlayerID]types.Point, numPlayers),
-		MaxX:    diameter,
-		MaxY:    diameter,
+		maxX:    diameter,
+		maxY:    diameter,
 	}
 	for i := range board.layout {
 		board.layout[i] = make([]types.Owner, diameter)
@@ -83,15 +83,15 @@ func NewBoard(players []types.PlayerID, pixelsPerPlayer uint, tighteningFactor f
 func (b *Board) ToString() string {
 	var s string
 	var ii, jj uint
-	s += "-" + strings.Repeat("---", int(b.MaxX)) + "-"
-	for ii = 0; ii < b.MaxX; ii++ {
+	s += "-" + strings.Repeat("---", int(b.maxX)) + "-"
+	for ii = 0; ii < b.maxX; ii++ {
 		s += "\n|"
-		for jj = 0; jj < b.MaxY; jj++ {
+		for jj = 0; jj < b.maxY; jj++ {
 			s += b.layout[jj][ii].ToString()
 		}
 		s += "|"
 	}
-	s += "\n-" + strings.Repeat("---", int(b.MaxX)) + "-"
+	s += "\n-" + strings.Repeat("---", int(b.maxX)) + "-"
 	return s
 }
 
@@ -100,8 +100,8 @@ func (b *Board) GetRaw() [][]types.Owner {
 }
 
 func (b *Board) inbounds(square types.Point) bool {
-	return (square.X >= 0 && square.X < int(b.MaxX) &&
-		square.Y >= 0 && square.Y < int(b.MaxY)) &&
+	return (square.X >= 0 && square.X < int(b.maxX) &&
+		square.Y >= 0 && square.Y < int(b.maxY)) &&
 		(b.layout[square.X][square.Y]&types.RESERVED) == 0
 }
 
