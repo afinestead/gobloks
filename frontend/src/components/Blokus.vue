@@ -13,6 +13,7 @@
           :square-size="16"
           @click.stop="handlePieceClick($event, p, idx)"
           @contextmenu.prevent
+          :disabled="allPlayers[playerID]?.status & (1<<2)"
           />
       </v-col>
 

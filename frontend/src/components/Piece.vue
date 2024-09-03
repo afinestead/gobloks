@@ -3,7 +3,7 @@
     <div
       v-for="(block, idx) in blocksInternal"
       :key="idx"
-      class="block"
+      :class="['block', {disabled: props.disabled}]"
       :style="[
         blockStyle,
         {
@@ -35,6 +35,10 @@ const props = defineProps({
   color: {
     type: String,
     default: ""
+  },
+  disabled: {
+    type: Boolean,
+    default: false,
   },
 });
 
@@ -138,5 +142,10 @@ function rotatePiece(deg) {
   border: 1px solid black;
   margin: 1px;
   box-sizing: border-box;
+}
+
+.disabled {
+  pointer-events: none;
+  background-color: #80808080 !important;
 }
 </style>
