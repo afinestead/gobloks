@@ -7,18 +7,13 @@ import (
 	"gobloks/internal/utilities"
 	"math"
 	"strings"
+	"sync"
 )
 
 type Board struct {
 	layout     [][]types.Owner
 	origins    map[types.PlayerID]types.Point
 	maxX, maxY uint
-}
-
-// TODO: Put this somewhere that makes sense
-type PlacementInternal struct {
-	piece  Piece
-	origin types.Point
 }
 
 func NewBoard(players []types.PlayerID, pixelsPerPlayer uint, tighteningFactor float64) (*Board, error) {
@@ -78,6 +73,23 @@ func NewBoard(players []types.PlayerID, pixelsPerPlayer uint, tighteningFactor f
 	}
 
 	return &board, nil
+}
+
+func (b *Board) Copy() *Board {
+	boardCopy := Board{
+		layout:  make([][]types.Owner, b.maxX),
+		origins: make(map[types.PlayerID]types.Point, len(b.origins)),
+		maxX:    b.maxX,
+		maxY:    b.maxY,
+	}
+	for i := range b.layout {
+		boardCopy.layout[i] = make([]types.Owner, b.maxY)
+		copy(boardCopy.layout[i], b.layout[i])
+	}
+	for pid, pt := range b.origins {
+		boardCopy.origins[pid] = pt
+	}
+	return &boardCopy
 }
 
 func (b *Board) ToString() string {
@@ -160,29 +172,15 @@ func (b *Board) occupiedByPlayer(square types.Point, owner types.Owner) bool {
 	return !sqOwner.IsVacant() && sqOwner.IsSamePlayer(owner)
 }
 
-func (b *Board) validPlacement(origin types.Point, p Piece, owner types.Owner) bool {
-	validCorner := false
-	for pt := range p.ToPoints() {
-		absPt := origin.Translate(int(pt.X), int(pt.Y))
-		if !b.inbounds(absPt) {
+func (b *Board) validPlacement(points utilities.Set[types.Point], owner types.Owner) bool {
+	valid := false
+	for pt := range points {
+		if !b.inbounds(pt) || !b.vacant(pt) || b.hasSelfSide(pt, owner) || b.isOriginForOther(pt, owner) {
 			return false
 		}
-		if !b.vacant(absPt) {
-			return false
-		}
-		if b.hasSelfSide(absPt, owner) {
-			return false
-		}
-		if b.isOriginForOther(absPt, owner) {
-			return false
-		}
-
-		cornerExists := b.HasCorner(absPt, owner)
-		startingSq := b.isStartingSquare(absPt, owner)
-
-		validCorner = validCorner || startingSq || cornerExists
+		valid = valid || b.isStartingSquare(pt, owner) || b.HasCorner(pt, owner)
 	}
-	return validCorner
+	return valid
 }
 
 func (b *Board) hasSelfSide(pt types.Point, owner types.Owner) bool {
@@ -209,18 +207,16 @@ func (b *Board) HasCorner(pt types.Point, owner types.Owner) bool {
 		(b.inbounds(dr) && b.occupiedByPlayer(dr, owner)))
 }
 
-func (b *Board) Place(origin types.Point, p Piece, owner types.Owner) (bool, error) {
-	valid := b.validPlacement(origin, p, owner)
+func (b *Board) Place(points utilities.Set[types.Point], owner types.Owner) (bool, error) {
+	valid := b.validPlacement(points, owner)
 	if !valid {
 		return false, errors.New("invalid placement")
 	}
-	pieceCoords := p.ToPoints()
-	for pt := range pieceCoords {
-		abs_pt := origin.Translate(int(pt.X), int(pt.Y))
-		err := b.occupy(abs_pt, owner)
+	for pt := range points {
+		err := b.occupy(pt, owner)
 		if err != nil {
-			for clearPt := range pieceCoords {
-				b.vacate(origin.Translate(int(clearPt.X), int(clearPt.Y)))
+			for clearPt := range points {
+				b.vacate(clearPt)
 			}
 			return false, err
 		}
@@ -229,20 +225,148 @@ func (b *Board) Place(origin types.Point, p Piece, owner types.Owner) (bool, err
 }
 
 func (b *Board) GetPossiblePlacement(owner types.Owner, pieces PieceSet) (types.Placement, error) {
-	plc := b.getPlacements(owner, pieces, true)
+	territory := b.findTerritory(owner)
+	corners := b.findCorners(territory, owner)
+	plc := b.getPlacements(corners, owner, pieces, true)
 
-	for p := range plc {
-		fmt.Println(p.origin, p.piece.ToString())
-		coords := make([]types.Point, 0, p.piece.Size())
-		for pt := range p.piece.ToPoints() {
-			coords = append(coords, p.origin.Translate(int(pt.X), int(pt.Y)))
-		}
-		return types.Placement{Coordinates: coords}, nil
+	for _, p := range plc {
+		fmt.Println("possible placement", p)
+		return p, nil
 	}
 
 	return types.Placement{}, errors.New("no placements found")
 }
 
-func (b *Board) GetAllPlacements(owner types.Owner, pieces PieceSet) utilities.Set[PlacementInternal] {
-	return b.getPlacements(owner, pieces, false)
+func (b *Board) getPlacements(corners []types.Point, owner types.Owner, pieces PieceSet, first bool) []types.Placement {
+
+	res := make([]types.Placement, 0, pieces.Size()*8) // max 8 permutations per piece
+
+	var wg sync.WaitGroup
+	var firstClose sync.Once
+	chDone := make(chan struct{})
+	chFound := make(chan utilities.Set[types.Point])
+
+	findPiecePlacement := func(pt types.Point, piece Piece) {
+		attemptedPieces := utilities.NewSet([]Piece{}, 8)
+		for j := 0; j < 2; j++ {
+			piece = piece.Reflect(types.X)
+			for i := 0; i < 4; i++ {
+				piece = piece.Rotate90()
+				if attemptedPieces.Has(piece) {
+					continue // Already tried this one
+				}
+				attemptedPieces.Add(piece)
+
+				// Check all possible placements
+				// TODO: Optimize?
+				absPoints := piece.ToPoints(pt)
+				// absPoints := utilities.NewSet([]types.Point{}, int(piece.Size()))
+				// for coord := range pieceCoords {
+				// 	absPoints.Add(pt.Translate(-int(coord.X), -int(coord.Y)))
+				// }
+				if b.validPlacement(absPoints, owner) {
+					select {
+					case <-chDone:
+						return
+					default:
+						chFound <- absPoints
+						if first {
+							firstClose.Do(func() { close(chDone) })
+						}
+					}
+				}
+			}
+		}
+	}
+
+	playerOrigin := b.origins[types.PlayerID(owner)]
+
+	originPlacementFinder := func(piece Piece) {
+		defer wg.Done()
+		findPiecePlacement(playerOrigin, piece)
+	}
+
+	cornerPlacementFinder := func(piece Piece) {
+		defer wg.Done()
+		for _, pt := range corners {
+			findPiecePlacement(pt, piece)
+		}
+	}
+
+	var placementFinder func(piece Piece)
+	if b.occupiedByPlayer(playerOrigin, owner) {
+		placementFinder = cornerPlacementFinder
+	} else {
+		placementFinder = originPlacementFinder
+	}
+
+	for piece := range pieces {
+		wg.Add(1)
+		go placementFinder(piece)
+	}
+
+	var resultGroup sync.WaitGroup
+	resultGroup.Add(1)
+	go func() {
+		defer resultGroup.Done()
+		for found := range chFound {
+			res = append(res, types.Placement{Coordinates: found.ToSlice()})
+		}
+	}()
+
+	wg.Wait()
+	close(chFound)
+	resultGroup.Wait()
+
+	return res
+}
+
+func (b *Board) findTerritory(o types.Owner) []types.Point {
+	territory := make([]types.Point, 0, b.maxX*b.maxY)
+	for ii := 0; ii < int(b.maxX); ii++ {
+		for jj := 0; jj < int(b.maxY); jj++ {
+			if b.occupiedByPlayer(types.Point{X: ii, Y: jj}, o) {
+				territory = append(territory, types.Point{X: ii, Y: jj})
+			}
+		}
+	}
+	return territory
+}
+
+func (b *Board) findCorners(territory []types.Point, owner types.Owner) []types.Point {
+	corners := make([]types.Point, 0, b.maxX*b.maxY)
+	for _, pt := range territory {
+		corners = append(corners, b.getFreeCorners(pt, owner)...)
+	}
+
+	fmt.Println("corners ", corners)
+	return corners
+}
+
+func (b *Board) getFreeCorners(pt types.Point, owner types.Owner) []types.Point {
+	l := pt.GetAdjacent(types.LEFT)
+	r := pt.GetAdjacent(types.RIGHT)
+	u := pt.GetAdjacent(types.UP)
+	d := pt.GetAdjacent(types.DOWN)
+
+	ul := u.GetAdjacent(types.LEFT)
+	ur := u.GetAdjacent(types.RIGHT)
+	dl := d.GetAdjacent(types.LEFT)
+	dr := d.GetAdjacent(types.RIGHT)
+
+	vacancies := make([]types.Point, 0, 4)
+
+	if b.inbounds(ul) && b.vacant(ul) && !b.occupiedByPlayer(u, owner) && !b.occupiedByPlayer(l, owner) {
+		vacancies = append(vacancies, ul)
+	}
+	if b.inbounds(ur) && b.vacant(ur) && !b.occupiedByPlayer(u, owner) && !b.occupiedByPlayer(r, owner) {
+		vacancies = append(vacancies, ur)
+	}
+	if b.inbounds(dl) && b.vacant(dl) && !b.occupiedByPlayer(d, owner) && !b.occupiedByPlayer(l, owner) {
+		vacancies = append(vacancies, dl)
+	}
+	if b.inbounds(dr) && b.vacant(dr) && !b.occupiedByPlayer(d, owner) && !b.occupiedByPlayer(r, owner) {
+		vacancies = append(vacancies, dr)
+	}
+	return vacancies
 }

@@ -123,8 +123,6 @@ function tryCreate() {
     console.error(e);
     // errorMessages.value = "Unable to create game";
   });
-
-  console.log("Create game with", nPlayers.value, "players, block size", blockDeg.value, "and density", density.value);
 }
 
 </script>

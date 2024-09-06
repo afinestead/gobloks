@@ -2,31 +2,27 @@ package manager
 
 import (
 	"fmt"
+	"gobloks/internal/game"
 	"gobloks/internal/types"
 	"math/rand"
 	"sync"
+	"time"
 )
 
 type GameManager struct {
-	mangagedGames map[types.GameID]*GameState
+	mangagedGames map[types.GameID]*game.Game
 	lock          *sync.Mutex
-	cleanupChan   chan types.GameID
 }
 
 func InitGameManager() *GameManager {
 	manager := &GameManager{
-		make(map[types.GameID]*GameState, types.MANAGED_GAMES_START_SIZE),
+		make(map[types.GameID]*game.Game, types.MANAGED_GAMES_START_SIZE),
 		&sync.Mutex{},
-		make(chan types.GameID),
 	}
 
 	go func() {
-		for {
-			cleanupGame := <-manager.cleanupChan
-			fmt.Println("cleaned up game", cleanupGame)
-			manager.lock.Lock()
-			delete(manager.mangagedGames, cleanupGame)
-			manager.lock.Unlock()
+		for range time.Tick(time.Hour * 24) {
+			manager.CleanupStale()
 		}
 	}()
 
@@ -55,12 +51,12 @@ func (gm *GameManager) CreateGame(config types.GameConfig) types.GameID {
 		}
 	}
 
-	gm.mangagedGames[gid] = InitGameState(gid, config, &gm.cleanupChan)
+	gm.mangagedGames[gid] = game.InitGame(gid, config)
 
 	return gid
 }
 
-func (gm *GameManager) FindGame(gid types.GameID) (*GameState, error) {
+func (gm *GameManager) FindGame(gid types.GameID) (*game.Game, error) {
 	gm.lock.Lock()
 	defer gm.lock.Unlock()
 
@@ -71,14 +67,26 @@ func (gm *GameManager) FindGame(gid types.GameID) (*GameState, error) {
 	return game, nil
 }
 
-func (gm *GameManager) ListGames() []types.GameID {
+func (gm *GameManager) ListGames(activeOnly bool, page, pageSize int) []types.GameID {
 	gm.lock.Lock()
 	defer gm.lock.Unlock()
 
-	// TODO: paginate?
+	// TODO: paginate
 	gids := make([]types.GameID, 0, len(gm.mangagedGames))
 	for gid := range gm.mangagedGames {
 		gids = append(gids, gid)
 	}
 	return gids
+}
+
+func (gm *GameManager) CleanupStale() {
+	gm.lock.Lock()
+	defer gm.lock.Unlock()
+	fmt.Println("cleaning up stale games")
+	for gid := range gm.mangagedGames {
+		if gm.mangagedGames[gid].IsStale() {
+			fmt.Println("cleaned up stale game", gid)
+			delete(gm.mangagedGames, gid)
+		}
+	}
 }

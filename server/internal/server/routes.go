@@ -25,6 +25,14 @@ func createGame(c *gin.Context) {
 	c.IndentedJSON(http.StatusCreated, gid)
 }
 
+func listGames(c *gin.Context) {
+	fmt.Println("list games")
+	gm := c.MustGet("manager").(*manager.GameManager)
+	games := gm.ListGames(true, 0, 0)
+
+	c.IndentedJSON(http.StatusOK, games)
+}
+
 func joinGame(c *gin.Context) {
 	gid, ok := c.GetQuery("game")
 	if !ok {

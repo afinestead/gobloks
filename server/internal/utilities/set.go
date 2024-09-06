@@ -58,3 +58,11 @@ func (s1 Set[T]) Is(s2 Set[T]) bool {
 	}
 	return true
 }
+
+func (s1 Set[T]) ToSlice() []T {
+	slice := make([]T, 0, s1.Size())
+	for elem := range s1 {
+		slice = append(slice, elem)
+	}
+	return slice
+}

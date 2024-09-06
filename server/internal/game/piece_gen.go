@@ -76,7 +76,7 @@ func generateNextPieces(piece Piece) PieceSet {
 		}
 		piece.repr <<= uint64(shift)
 
-		for pt := range piece.ToPoints() {
+		for pt := range piece.toCoords() {
 			for _, dir := range []types.Direction{types.UP, types.DOWN, types.LEFT, types.RIGHT} {
 				adj, err := pt.getAdjacent(dir)
 				if err != nil {

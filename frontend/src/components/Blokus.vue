@@ -13,7 +13,7 @@
           :square-size="16"
           @click.stop="handlePieceClick($event, p, idx)"
           @contextmenu.prevent
-          :disabled="allPlayers[playerID]?.status & (1<<2)"
+          :disabled="Boolean(allPlayers[playerID]?.status & (1<<2))"
           />
       </v-col>
 
@@ -122,7 +122,6 @@ const playerOrder = computed(() => {
     sorted.push(allPlayers.value[pid])
   }
   sorted.sort((p1,p2) => p1.order - p2.order)
-  console.log(sorted);
   
   return sorted
 });
@@ -316,7 +315,7 @@ onMounted(() => {
   const new_ws = store.connectSocket();
   new_ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
-    console.log(msg);
+    // console.log(msg);
 
     switch (msg.type) {
 
@@ -342,8 +341,6 @@ onMounted(() => {
       case MessageType.GameStatus:
         whoseTurn.value = msg.data.turn;
         gameStatus.value = msg.data.status;
-
-        console.log("Game status", whoseTurn.value, gameStatus.value);
         break;
       
       case MessageType.PlayerUpdate:

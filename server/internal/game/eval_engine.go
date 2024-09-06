@@ -1,146 +1,90 @@
 package game
 
 import (
-	"fmt"
 	"gobloks/internal/types"
 	"gobloks/internal/utilities"
-	"sync"
 )
 
-func (b *Board) getPlacements(owner types.Owner, pieces PieceSet, first bool) utilities.Set[PlacementInternal] {
-	corners := b.findCorners(owner)
+const (
+	WEIGHT_PLACEMENTS float64 = 1.0
+	WEIGHT_CORNERS    float64 = 1.0
+	WEIGHT_TERRITORY  float64 = 1.0
+)
 
-	res := utilities.NewSet([]PlacementInternal{})
+type EvalEngine struct {
+	depth    uint
+	chRecv   chan *EvalState
+	chCancel chan struct{}
+	chResult chan map[types.PlayerID]float64
+}
 
-	var wg sync.WaitGroup
-	var firstClose sync.Once
-	chDone := make(chan struct{})
-	chFound := make(chan PlacementInternal)
+type EvalState struct {
+	game    *GameState
+	players map[types.PlayerID]*PlayerState
+}
 
-	findPiecePlacement := func(pt types.Point, piece Piece) {
-		attemptedPieces := utilities.NewSet([]Piece{}, 8)
-		for j := 0; j < 2; j++ {
-			piece = piece.Reflect(types.X)
-			for i := 0; i < 4; i++ {
-				piece = piece.Rotate90()
-				if attemptedPieces.Has(piece) {
-					continue // Already tried this one
-				}
-				attemptedPieces.Add(piece)
+func InitEvalEngine(depth uint) *EvalEngine {
+	return &EvalEngine{
+		depth:    depth,
+		chRecv:   make(chan *EvalState),
+		chCancel: make(chan struct{}),
+		chResult: make(chan map[types.PlayerID]float64),
+	}
+}
+func (engine *EvalEngine) Evaluate(state *EvalState) {
+	engine.chRecv <- state
+}
 
-				// Check all possible placements
-				// TODO: Optimize?
-				piecePoints := piece.ToPoints()
-				for pp := range piecePoints {
+func (engine *EvalEngine) Start() {
+	for state := range engine.chRecv {
+		// engine.chCancel <- struct{}{}
+		eval := make(map[types.PlayerID]float64, len(state.players))
+		err := engine.evaluateGameState(state, 0, eval)
+		if err == nil {
+			engine.chResult <- eval
+		}
+	}
+}
 
-					absPieceOrigin := pt.Translate(-int(pp.X), -int(pp.Y))
-					if b.validPlacement(absPieceOrigin, piece, owner) {
-						select {
-						case <-chDone:
-							return
-						default:
-							chFound <- PlacementInternal{piece, absPieceOrigin}
-							if first {
-								firstClose.Do(func() { close(chDone) })
-							}
-						}
+func (engine *EvalEngine) Stop() {
+	close(engine.chRecv)
+	close(engine.chCancel)
+	close(engine.chResult)
+}
+
+func (engine *EvalEngine) evaluateGameState(state *EvalState, curDepth int, curRes map[types.PlayerID]float64) error {
+	if curDepth >= int(engine.depth) || state.game.status.Has(COMPLETE) {
+		return nil
+	}
+
+	// iterate in order, starting with the current turn
+	for i := 0; i < len(state.players); i++ {
+		next := state.players[types.PlayerID((int(state.game.turn)+i)%len(state.players))+1]
+		if !next.status.Has(DISABLED) {
+			select {
+			case <-engine.chCancel:
+				return nil
+			default:
+				territory := state.game.board.findTerritory(types.Owner(next.pid))
+				corners := state.game.board.findCorners(territory, types.Owner(next.pid))
+				placements := state.game.board.getPlacements(corners, types.Owner(next.pid), state.players[next.pid].pieces, false)
+
+				eval := float64(len(territory))*WEIGHT_TERRITORY + float64(len(corners))*WEIGHT_CORNERS + float64(len(placements))*WEIGHT_PLACEMENTS
+				curRes[next.pid] += eval
+
+				for _, plc := range placements {
+					gsCopy := state.game.Copy()
+					playersCopy := make(map[types.PlayerID]*PlayerState, len(state.players))
+					for pid, player := range state.players {
+						playersCopy[pid] = player.Copy()
 					}
+
+					gsCopy.board.Place(utilities.NewSet(plc.Coordinates), types.Owner(next.pid))
+					engine.evaluateGameState(&EvalState{gsCopy, playersCopy}, curDepth+1, curRes)
 				}
 			}
 		}
 	}
 
-	playerOrigin := b.origins[types.PlayerID(owner)]
-
-	originPlacementFinder := func(piece Piece) {
-		defer wg.Done()
-		findPiecePlacement(playerOrigin, piece)
-	}
-
-	cornerPlacementFinder := func(piece Piece) {
-		defer wg.Done()
-		for _, pt := range corners {
-			findPiecePlacement(pt, piece)
-		}
-	}
-
-	var placementFinder func(piece Piece)
-	if b.occupiedByPlayer(playerOrigin, owner) {
-		placementFinder = cornerPlacementFinder
-	} else {
-		placementFinder = originPlacementFinder
-	}
-
-	for piece := range pieces {
-		wg.Add(1)
-		go placementFinder(piece)
-	}
-
-	var resultGroup sync.WaitGroup
-	resultGroup.Add(1)
-	go func() {
-		defer resultGroup.Done()
-		for found := range chFound {
-			res.Add(found)
-		}
-	}()
-
-	wg.Wait()
-	close(chFound)
-	resultGroup.Wait()
-
-	return res
-}
-
-func (b *Board) findTerritory(o types.Owner) []types.Point {
-	territory := make([]types.Point, 0, b.maxX*b.maxY)
-	for ii := 0; ii < int(b.maxX); ii++ {
-		for jj := 0; jj < int(b.maxY); jj++ {
-			if b.occupiedByPlayer(types.Point{X: ii, Y: jj}, o) {
-				territory = append(territory, types.Point{X: ii, Y: jj})
-			}
-		}
-	}
-	return territory
-}
-
-func (b *Board) findCorners(owner types.Owner) []types.Point {
-	territory := b.findTerritory(owner)
-	fmt.Println("territory ", territory)
-
-	corners := make([]types.Point, 0, b.maxX*b.maxY)
-	for _, pt := range territory {
-		corners = append(corners, b.getFreeCorners(pt, owner)...)
-	}
-
-	fmt.Println("corners ", corners)
-	return corners
-}
-
-func (b *Board) getFreeCorners(pt types.Point, owner types.Owner) []types.Point {
-	l := pt.GetAdjacent(types.LEFT)
-	r := pt.GetAdjacent(types.RIGHT)
-	u := pt.GetAdjacent(types.UP)
-	d := pt.GetAdjacent(types.DOWN)
-
-	ul := u.GetAdjacent(types.LEFT)
-	ur := u.GetAdjacent(types.RIGHT)
-	dl := d.GetAdjacent(types.LEFT)
-	dr := d.GetAdjacent(types.RIGHT)
-
-	vacancies := make([]types.Point, 0, 4)
-
-	if b.inbounds(ul) && b.vacant(ul) && !b.occupiedByPlayer(u, owner) && !b.occupiedByPlayer(l, owner) {
-		vacancies = append(vacancies, ul)
-	}
-	if b.inbounds(ur) && b.vacant(ur) && !b.occupiedByPlayer(u, owner) && !b.occupiedByPlayer(r, owner) {
-		vacancies = append(vacancies, ur)
-	}
-	if b.inbounds(dl) && b.vacant(dl) && !b.occupiedByPlayer(d, owner) && !b.occupiedByPlayer(l, owner) {
-		vacancies = append(vacancies, dl)
-	}
-	if b.inbounds(dr) && b.vacant(dr) && !b.occupiedByPlayer(d, owner) && !b.occupiedByPlayer(r, owner) {
-		vacancies = append(vacancies, dr)
-	}
-	return vacancies
+	return nil
 }

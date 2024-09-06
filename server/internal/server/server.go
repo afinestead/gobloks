@@ -59,16 +59,19 @@ func Start(port uint, production bool) {
 	}
 
 	router := gin.Default()
+	router.SetTrustedProxies(nil)
 	router.Use(
 		ApiMiddleware(globalGameManager),
 		CORSMiddleware(production),
 		authorization.AuthMiddleware([]gin.HandlerFunc{
 			createGame,
 			joinGame,
+			listGames,
 		}),
 	)
 
 	router.POST("/create", createGame)
+	router.GET("/list", listGames)
 	router.POST("/join", joinGame)
 	router.PUT("/place", placePiece)
 	router.GET("/hint", getHint)

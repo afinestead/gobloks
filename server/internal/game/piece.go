@@ -10,7 +10,7 @@ import (
 
 type Piece struct{ repr, hash uint64 }
 type PieceSet utilities.Set[Piece]
-type PieceCoord struct{ X, Y uint8 }
+type pieceCoord struct{ x, y uint8 }
 
 const (
 	MaxPieceDegree uint8  = 8
@@ -18,19 +18,19 @@ const (
 	MatrixMagic    uint64 = 0x02040810204081
 )
 
-func (p PieceCoord) getAdjacent(dir types.Direction) (PieceCoord, error) {
-	var pt PieceCoord
+func (p pieceCoord) getAdjacent(dir types.Direction) (pieceCoord, error) {
+	var pt pieceCoord
 	var err error
 	if dir == types.UP {
-		pt = PieceCoord{p.X, p.Y + 1}
+		pt = pieceCoord{p.x, p.y + 1}
 	} else if dir == types.DOWN {
-		pt = PieceCoord{p.X, p.Y - 1}
+		pt = pieceCoord{p.x, p.y - 1}
 	} else if dir == types.LEFT {
-		pt = PieceCoord{p.X - 1, p.Y}
+		pt = pieceCoord{p.x - 1, p.y}
 	} else { // dir == RIGHT
-		pt = PieceCoord{p.X + 1, p.Y}
+		pt = pieceCoord{p.x + 1, p.y}
 	}
-	if pt.X >= MaxPieceDegree || pt.Y >= MaxPieceDegree {
+	if pt.x >= MaxPieceDegree || pt.y >= MaxPieceDegree {
 		// under/overflow
 		err = errors.New("no adjacent point")
 	}
@@ -160,16 +160,16 @@ func (p *Piece) Corners() []types.Point {
 	return corners
 }
 
-func (p Piece) addPoint(pt PieceCoord) Piece {
+func (p Piece) addPoint(pt pieceCoord) Piece {
 	return NewPiece(p.repr | pointTo64(pt))
 }
 
-func (p Piece) hasPoint(pt PieceCoord) bool {
+func (p Piece) hasPoint(pt pieceCoord) bool {
 	return (p.repr & pointTo64(pt)) > 0
 }
 
-func (p Piece) ToPoints() utilities.Set[PieceCoord] {
-	pointSet := utilities.Set[PieceCoord]{}
+func (p Piece) toCoords() utilities.Set[pieceCoord] {
+	pointSet := utilities.Set[pieceCoord]{}
 	var bitMask uint64
 	var countedBits, ii uint8
 	for countedBits < p.Size() {
@@ -183,15 +183,37 @@ func (p Piece) ToPoints() utilities.Set[PieceCoord] {
 	return pointSet
 }
 
-func PieceFromPoints(points utilities.Set[PieceCoord]) Piece {
+func (p Piece) ToPoints(origin ...types.Point) utilities.Set[types.Point] {
+	relativeTo := types.Point{X: 0, Y: 0}
+	if len(origin) > 0 {
+		relativeTo = origin[0]
+	}
+	pieceCoords := p.toCoords()
+	piecePoints := utilities.NewSet([]types.Point{}, pieceCoords.Size())
+	for coord := range pieceCoords {
+		piecePoints.Add(relativeTo.Translate(int(coord.x), int(coord.y)))
+		// piecePoints.Add(types.Point{X: int(coord.X), Y: int(coord.Y)}.Translate(relativeTo.X, relativeTo.Y))
+	}
+	return piecePoints
+}
+
+func PieceFromPoints(points utilities.Set[types.Point]) Piece {
 	var v uint64
-	for pt := range points {
+
+	// convert placement to Piece/origin
+	relPoints, _ := utilities.NormalizeToOrigin(points)
+	relCoords := utilities.NewSet([]pieceCoord{}, relPoints.Size())
+	for coord := range relPoints {
+		relCoords.Add(pieceCoord{uint8(coord.X), uint8(coord.Y)})
+	}
+
+	for pt := range relCoords {
 		v |= pointTo64(pt)
 	}
 	return NewPiece(v)
 }
 
-func ValidPieceCoords(points utilities.Set[PieceCoord]) bool {
+func ValidPieceCoords(points utilities.Set[pieceCoord]) bool {
 	if points.Size() == 1 {
 		return true
 	}
@@ -290,13 +312,13 @@ func stringify64(num uint64, filled, unfilled rune) string {
 	return s
 }
 
-func pointTo64(pt PieceCoord) uint64 {
-	return (1 << pt.X) << (pt.Y * MaxPieceDegree)
+func pointTo64(pt pieceCoord) uint64 {
+	return (1 << pt.x) << (pt.y * MaxPieceDegree)
 }
 
-func pointFrom64(n uint64) PieceCoord {
+func pointFrom64(n uint64) pieceCoord {
 	tz := uint8(bits.TrailingZeros64(n))
-	return PieceCoord{tz % MaxPieceDegree, tz / MaxPieceDegree}
+	return pieceCoord{tz % MaxPieceDegree, tz / MaxPieceDegree}
 }
 
 func (ps *PieceSet) Size() int {
