@@ -5,6 +5,4 @@ type Node[T interface{}] struct {
 	Next  *Node[T]
 }
 
-type LinkedList[T interface{}] struct {
-	Head *Node[T]
-}
+type LinkedList[T interface{}] *Node[T]

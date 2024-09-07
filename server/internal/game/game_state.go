@@ -124,9 +124,9 @@ func (g *Game) nextTurn() {
 		maybeNext := types.PlayerID((int(g.state.turn)+i)%len(g.players)) + 1
 		// if player is not disabled and has a piece to play, they are next
 		if !g.players[maybeNext].state.status.Has(DISABLED) {
-			maybePlacement, err := g.state.board.GetPossiblePlacement(types.Owner(maybeNext), g.players[maybeNext].state.pieces)
-			if err == nil {
-				g.players[maybeNext].possiblePlacement = maybePlacement
+			maybePlacement := g.state.board.GetPossiblePlacement(maybeNext, g.players[maybeNext].state.pieces)
+			if maybePlacement != nil {
+				g.players[maybeNext].possiblePlacement = *maybePlacement
 				nextUp = maybeNext
 				break
 			} else {
@@ -181,7 +181,9 @@ func (g *Game) endGame() {
 
 	// Stop all player timers
 	for _, player := range g.players {
-		player.connectionTimer.Pause()
+		if player.connectionTimer != nil {
+			player.connectionTimer.Pause()
+		}
 		if g.config.TimeControl > 0 {
 			player.playerTimer.Pause()
 		}

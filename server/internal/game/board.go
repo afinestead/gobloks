@@ -224,22 +224,22 @@ func (b *Board) Place(points utilities.Set[types.Point], owner types.Owner) (boo
 	return true, nil
 }
 
-func (b *Board) GetPossiblePlacement(owner types.Owner, pieces PieceSet) (types.Placement, error) {
-	territory := b.findTerritory(owner)
-	corners := b.findCorners(territory, owner)
-	placeList := b.getPlacements(corners, owner, pieces, true)
+func (b *Board) GetPossiblePlacement(player types.PlayerID, pieces PieceSet) *types.Placement {
+	territory := b.findTerritory(types.Owner(player))
+	corners := b.findCorners(territory, types.Owner(player))
+	placeList := b.getPlacements(corners, types.Owner(player), pieces, true)
 
-	for p := placeList.Head; p != nil; p = p.Next {
+	for p := placeList; p != nil; p = p.Next {
 		fmt.Println("possible placement", p.Value)
-		return p.Value, nil
+		return &p.Value
 	}
 
-	return types.Placement{}, errors.New("no placements found")
+	return nil
 }
 
 func (b *Board) getPlacements(corners []types.Point, owner types.Owner, pieces PieceSet, first bool) utilities.LinkedList[types.Placement] {
-	res := utilities.LinkedList[types.Placement]{}
-	head := res.Head
+	res := &utilities.Node[types.Placement]{}
+	head := res
 
 	var wg sync.WaitGroup
 	var firstClose sync.Once
@@ -312,13 +312,8 @@ func (b *Board) getPlacements(corners []types.Point, owner types.Owner, pieces P
 	go func() {
 		defer resultGroup.Done()
 		for found := range chFound {
-			if res.Head == nil {
-				res.Head = &utilities.Node[types.Placement]{Value: found.ToSlice()}
-				head = res.Head
-			} else {
-				head.Next = &utilities.Node[types.Placement]{Value: found.ToSlice()}
-				head = head.Next
-			}
+			head.Next = &utilities.Node[types.Placement]{Value: found.ToSlice()}
+			head = head.Next
 		}
 	}()
 
@@ -326,7 +321,7 @@ func (b *Board) getPlacements(corners []types.Point, owner types.Owner, pieces P
 	close(chFound)
 	resultGroup.Wait()
 
-	return res
+	return res.Next
 }
 
 func (b *Board) findTerritory(o types.Owner) []types.Point {

@@ -71,7 +71,7 @@ func (engine *EvalEngine) evaluateGameState(state *EvalState, curDepth int, curR
 				placements := state.game.board.getPlacements(corners, types.Owner(next.pid), state.players[next.pid].pieces, false)
 
 				numPlacements := 0
-				for p := placements.Head; p != nil; p = p.Next {
+				for p := placements; p != nil; p = p.Next {
 					// if len(p.Value) == 0 {
 					// 	panic("empty placement")
 					// }
@@ -84,7 +84,7 @@ func (engine *EvalEngine) evaluateGameState(state *EvalState, curDepth int, curR
 				eval := float64(len(territory))*WEIGHT_TERRITORY + float64(len(corners))*WEIGHT_CORNERS + float64(numPlacements)*WEIGHT_PLACEMENTS
 				curRes[next.pid] += eval
 
-				for p := placements.Head; p != nil; p = p.Next {
+				for p := placements; p != nil; p = p.Next {
 					gsCopy := state.game.Copy()
 					playersCopy := make(map[types.PlayerID]*PlayerState, len(state.players))
 					for pid, player := range state.players {
