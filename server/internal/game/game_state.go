@@ -387,14 +387,14 @@ func (g *Game) PlacePiece(pid types.PlayerID, placement types.Placement) error {
 		return errors.New("player does not have this piece")
 	}
 
-	_, err = g.state.board.Place(ptSet, types.Owner(pid))
+	_, err = g.state.board.Place(ptSet, pid)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("Placement PID", pid)
-	fmt.Println("points", ptSet)
-	fmt.Println("piece", piece.ToString())
+	// fmt.Println("Placement PID", pid)
+	// fmt.Println("points", ptSet)
+	// fmt.Println("piece", piece.ToString())
 
 	g.lastActive = time.Now()
 

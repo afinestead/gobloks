@@ -207,13 +207,13 @@ func (b *Board) HasCorner(pt types.Point, owner types.Owner) bool {
 		(b.inbounds(dr) && b.occupiedByPlayer(dr, owner)))
 }
 
-func (b *Board) Place(points utilities.Set[types.Point], owner types.Owner) (bool, error) {
-	valid := b.validPlacement(points, owner)
+func (b *Board) Place(points utilities.Set[types.Point], player types.PlayerID) (bool, error) {
+	valid := b.validPlacement(points, types.Owner(player))
 	if !valid {
 		return false, errors.New("invalid placement")
 	}
 	for pt := range points {
-		err := b.occupy(pt, owner)
+		err := b.occupy(pt, types.Owner(player))
 		if err != nil {
 			for clearPt := range points {
 				b.vacate(clearPt)
@@ -341,8 +341,6 @@ func (b *Board) findCorners(territory []types.Point, owner types.Owner) []types.
 	for _, pt := range territory {
 		corners = append(corners, b.getFreeCorners(pt, owner)...)
 	}
-
-	fmt.Println("corners ", corners)
 	return corners
 }
 
