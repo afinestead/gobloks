@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"gobloks/internal/types"
 	"gobloks/internal/utilities"
 )
@@ -69,17 +70,28 @@ func (engine *EvalEngine) evaluateGameState(state *EvalState, curDepth int, curR
 				corners := state.game.board.findCorners(territory, types.Owner(next.pid))
 				placements := state.game.board.getPlacements(corners, types.Owner(next.pid), state.players[next.pid].pieces, false)
 
-				eval := float64(len(territory))*WEIGHT_TERRITORY + float64(len(corners))*WEIGHT_CORNERS + float64(len(placements))*WEIGHT_PLACEMENTS
+				numPlacements := 0
+				for p := placements.Head; p != nil; p = p.Next {
+					// if len(p.Value) == 0 {
+					// 	panic("empty placement")
+					// }
+					// fmt.Println("place", p.Value)
+					numPlacements++
+				}
+
+				fmt.Println("evaluating", next.pid, len(territory), len(corners), numPlacements)
+
+				eval := float64(len(territory))*WEIGHT_TERRITORY + float64(len(corners))*WEIGHT_CORNERS + float64(numPlacements)*WEIGHT_PLACEMENTS
 				curRes[next.pid] += eval
 
-				for _, plc := range placements {
+				for p := placements.Head; p != nil; p = p.Next {
 					gsCopy := state.game.Copy()
 					playersCopy := make(map[types.PlayerID]*PlayerState, len(state.players))
 					for pid, player := range state.players {
 						playersCopy[pid] = player.Copy()
 					}
 
-					gsCopy.board.Place(utilities.NewSet(plc.Coordinates), types.Owner(next.pid))
+					gsCopy.board.Place(utilities.NewSet(p.Value), types.Owner(next.pid))
 					engine.evaluateGameState(&EvalState{gsCopy, playersCopy}, curDepth+1, curRes)
 				}
 			}

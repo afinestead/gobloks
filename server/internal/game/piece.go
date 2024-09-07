@@ -183,16 +183,11 @@ func (p Piece) toCoords() utilities.Set[pieceCoord] {
 	return pointSet
 }
 
-func (p Piece) ToPoints(origin ...types.Point) utilities.Set[types.Point] {
-	relativeTo := types.Point{X: 0, Y: 0}
-	if len(origin) > 0 {
-		relativeTo = origin[0]
-	}
+func (p Piece) ToPoints() utilities.Set[types.Point] {
 	pieceCoords := p.toCoords()
 	piecePoints := utilities.NewSet([]types.Point{}, pieceCoords.Size())
 	for coord := range pieceCoords {
-		piecePoints.Add(relativeTo.Translate(int(coord.x), int(coord.y)))
-		// piecePoints.Add(types.Point{X: int(coord.X), Y: int(coord.Y)}.Translate(relativeTo.X, relativeTo.Y))
+		piecePoints.Add(types.Point{X: int(coord.x), Y: int(coord.y)})
 	}
 	return piecePoints
 }
@@ -200,15 +195,9 @@ func (p Piece) ToPoints(origin ...types.Point) utilities.Set[types.Point] {
 func PieceFromPoints(points utilities.Set[types.Point]) Piece {
 	var v uint64
 
-	// convert placement to Piece/origin
 	relPoints, _ := utilities.NormalizeToOrigin(points)
-	relCoords := utilities.NewSet([]pieceCoord{}, relPoints.Size())
-	for coord := range relPoints {
-		relCoords.Add(pieceCoord{uint8(coord.X), uint8(coord.Y)})
-	}
-
-	for pt := range relCoords {
-		v |= pointTo64(pt)
+	for pt := range relPoints {
+		v |= pointTo64(pieceCoord{uint8(pt.X), uint8(pt.Y)})
 	}
 	return NewPiece(v)
 }

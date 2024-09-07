@@ -379,7 +379,7 @@ func (g *Game) PlacePiece(pid types.PlayerID, placement types.Placement) error {
 		return err
 	}
 
-	ptSet := utilities.NewSet(placement.Coordinates)
+	ptSet := utilities.NewSet(placement)
 	piece := PieceFromPoints(ptSet)
 	if !player.state.pieces.Has(piece) {
 		return errors.New("player does not have this piece")
@@ -438,7 +438,7 @@ func (g *Game) GetHint(pid types.PlayerID) (types.Point, error) {
 
 	player.hints -= 1
 
-	for _, pt := range player.possiblePlacement.Coordinates {
+	for _, pt := range player.possiblePlacement {
 		if g.state.board.HasCorner(pt, types.Owner(pid)) {
 			return pt, nil
 		}

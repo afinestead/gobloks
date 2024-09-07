@@ -227,19 +227,19 @@ func (b *Board) Place(points utilities.Set[types.Point], owner types.Owner) (boo
 func (b *Board) GetPossiblePlacement(owner types.Owner, pieces PieceSet) (types.Placement, error) {
 	territory := b.findTerritory(owner)
 	corners := b.findCorners(territory, owner)
-	plc := b.getPlacements(corners, owner, pieces, true)
+	placeList := b.getPlacements(corners, owner, pieces, true)
 
-	for _, p := range plc {
-		fmt.Println("possible placement", p)
-		return p, nil
+	for p := placeList.Head; p != nil; p = p.Next {
+		fmt.Println("possible placement", p.Value)
+		return p.Value, nil
 	}
 
 	return types.Placement{}, errors.New("no placements found")
 }
 
-func (b *Board) getPlacements(corners []types.Point, owner types.Owner, pieces PieceSet, first bool) []types.Placement {
-
-	res := make([]types.Placement, 0, pieces.Size()*8) // max 8 permutations per piece
+func (b *Board) getPlacements(corners []types.Point, owner types.Owner, pieces PieceSet, first bool) utilities.LinkedList[types.Placement] {
+	res := utilities.LinkedList[types.Placement]{}
+	head := res.Head
 
 	var wg sync.WaitGroup
 	var firstClose sync.Once
@@ -259,19 +259,21 @@ func (b *Board) getPlacements(corners []types.Point, owner types.Owner, pieces P
 
 				// Check all possible placements
 				// TODO: Optimize?
-				absPoints := piece.ToPoints(pt)
-				// absPoints := utilities.NewSet([]types.Point{}, int(piece.Size()))
-				// for coord := range pieceCoords {
-				// 	absPoints.Add(pt.Translate(-int(coord.X), -int(coord.Y)))
-				// }
-				if b.validPlacement(absPoints, owner) {
-					select {
-					case <-chDone:
-						return
-					default:
-						chFound <- absPoints
-						if first {
-							firstClose.Do(func() { close(chDone) })
+				piecePoints := piece.ToPoints()
+				for origin := range piecePoints {
+					absPoints := utilities.NewSet([]types.Point{}, len(piecePoints))
+					for pp := range piecePoints {
+						absPoints.Add(pp.Translate(pt.X-origin.X, pt.Y-origin.Y))
+					}
+					if b.validPlacement(absPoints, owner) {
+						select {
+						case <-chDone:
+							return
+						default:
+							chFound <- absPoints
+							if first {
+								firstClose.Do(func() { close(chDone) })
+							}
 						}
 					}
 				}
@@ -310,7 +312,13 @@ func (b *Board) getPlacements(corners []types.Point, owner types.Owner, pieces P
 	go func() {
 		defer resultGroup.Done()
 		for found := range chFound {
-			res = append(res, types.Placement{Coordinates: found.ToSlice()})
+			if res.Head == nil {
+				res.Head = &utilities.Node[types.Placement]{Value: found.ToSlice()}
+				head = res.Head
+			} else {
+				head.Next = &utilities.Node[types.Placement]{Value: found.ToSlice()}
+				head = head.Next
+			}
 		}
 	}()
 

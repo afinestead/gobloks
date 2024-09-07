@@ -46,8 +46,8 @@ export default class DefaultApi {
   };
 
   place(accessToken, placement) {
-    const postBody = {"coords": placement};
-
+    const postBody = placement;
+  
     const pathParams = {};
     const queryParams = {};
     const headerParams = {'Access-Token': accessToken};
