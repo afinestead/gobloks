@@ -107,10 +107,6 @@ const rules = ref({
   required: (v) => !!v || "Required",
 })
 
-// watch(nPlayers, (v) => nPlayers.value = Math.min(Math.max(Math.round(v), 1), 32));
-// watch(blockDeg, (v) => blockDeg.value = Math.min(Math.max(Math.round(v), 1), 8));
-
-
 function tryCreate() {
   store.createGame({
     players: parseInt(nPlayers.value),

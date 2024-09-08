@@ -119,24 +119,45 @@ func (g *Game) IsStale() bool {
 }
 
 func (g *Game) nextTurn() {
-	var nextUp types.PlayerID = PID_NONE
-	for i := 0; i < len(g.players); i++ {
-		maybeNext := types.PlayerID((int(g.state.turn)+i)%len(g.players)) + 1
-		// if player is not disabled and has a piece to play, they are next
-		if !g.players[maybeNext].state.status.Has(DISABLED) {
-			maybePlacement := g.state.board.GetPossiblePlacement(maybeNext, g.players[maybeNext].state.pieces)
-			if maybePlacement != nil {
-				g.players[maybeNext].possiblePlacement = *maybePlacement
-				if nextUp == PID_NONE {
-					nextUp = maybeNext
-				}
-			} else {
-				g.players[maybeNext].state.status.Set(DISABLED) // No playable pieces, disable player
-			}
+	chResult := make(chan struct {
+		types.PlayerID
+		*types.Placement
+	})
+
+	wg := sync.WaitGroup{}
+
+	for pid, player := range g.players {
+		if !player.state.status.Has(DISABLED) {
+			wg.Add(1)
+			go g.state.board.GetPossiblePlacement(pid, player.state.pieces, chResult)
 		}
 	}
 
-	fmt.Println("Next up: ", nextUp)
+	go func() {
+		for plc := range chResult {
+			wg.Done()
+			if plc.Placement != nil {
+				g.players[plc.PlayerID].possiblePlacement = *plc.Placement
+			} else {
+				g.players[plc.PlayerID].state.status.Set(DISABLED) // No playable pieces, disable player
+			}
+		}
+	}()
+
+	wg.Wait()
+	close(chResult)
+
+	var nextUp types.PlayerID = PID_NONE
+	for i := 0; i < len(g.players); i++ {
+		maybeNext := types.PlayerID((int(g.state.turn)+i)%len(g.players)) + 1
+		if !g.players[maybeNext].state.status.Has(DISABLED) {
+			nextUp = maybeNext
+			fmt.Println("Next up:", nextUp)
+			fmt.Println("Possible placement:", g.players[maybeNext].possiblePlacement)
+			break
+		}
+	}
+
 	g.state.turn = nextUp
 }
 

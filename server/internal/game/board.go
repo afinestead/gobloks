@@ -2,7 +2,6 @@ package game
 
 import (
 	"errors"
-	"fmt"
 	"gobloks/internal/types"
 	"gobloks/internal/utilities"
 	"math"
@@ -224,17 +223,22 @@ func (b *Board) Place(points utilities.Set[types.Point], player types.PlayerID) 
 	return true, nil
 }
 
-func (b *Board) GetPossiblePlacement(player types.PlayerID, pieces PieceSet) *types.Placement {
+func (b *Board) GetPossiblePlacement(player types.PlayerID, pieces PieceSet, chResult chan struct {
+	types.PlayerID
+	*types.Placement
+}) {
 	territory := b.findTerritory(types.Owner(player))
 	corners := b.findCorners(territory, types.Owner(player))
 	placeList := b.getPlacements(corners, types.Owner(player), pieces, true)
 
-	for p := placeList; p != nil; p = p.Next {
-		fmt.Println("possible placement", p.Value)
-		return &p.Value
+	var placement *types.Placement = nil
+	if placeList != nil {
+		placement = &placeList.Value
 	}
-
-	return nil
+	chResult <- struct {
+		types.PlayerID
+		*types.Placement
+	}{player, placement}
 }
 
 func (b *Board) getPlacements(corners []types.Point, owner types.Owner, pieces PieceSet, first bool) utilities.LinkedList[types.Placement] {
