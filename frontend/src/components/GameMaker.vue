@@ -117,6 +117,9 @@ function tryCreate() {
     degree: parseInt(blockDeg.value),
     density: density.value,
     turns: true,
+    timeSeconds: 0,
+    timeBonus: 0,
+    hints: 100,
   }).then((gid) => {
     router.push({ path: '/join', query: { game: gid } });
   }).catch((e) => {

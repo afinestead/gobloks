@@ -127,8 +127,9 @@ func (g *Game) nextTurn() {
 			maybePlacement := g.state.board.GetPossiblePlacement(maybeNext, g.players[maybeNext].state.pieces)
 			if maybePlacement != nil {
 				g.players[maybeNext].possiblePlacement = *maybePlacement
-				nextUp = maybeNext
-				break
+				if nextUp == PID_NONE {
+					nextUp = maybeNext
+				}
 			} else {
 				g.players[maybeNext].state.status.Set(DISABLED) // No playable pieces, disable player
 			}
@@ -391,10 +392,6 @@ func (g *Game) PlacePiece(pid types.PlayerID, placement types.Placement) error {
 	if err != nil {
 		return err
 	}
-
-	// fmt.Println("Placement PID", pid)
-	// fmt.Println("points", ptSet)
-	// fmt.Println("piece", piece.ToString())
 
 	g.lastActive = time.Now()
 
