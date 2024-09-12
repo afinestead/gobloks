@@ -1,6 +1,5 @@
 <template>
-  <v-container class="fill-height" fluid min-height="480">
-
+  <v-container class="game-container fill-height" fluid min-height="480">
     <v-row class="gameplay-area fill-height">
       <v-col cols="1" class="panel my-pieces bordered" ref="pieceDeck">
         <piece
@@ -8,19 +7,19 @@
           v-if="myPieces.length !== 0"
           v-for="(p,idx) in myPieces"
           :key="idx"
-          :color="allPlayers[playerID]?.color || '#ffffff'"
+          :color="myPlayer?.color || '#ffffff'"
           :blocks="p.body"
           :square-size="16"
           @click.stop="handlePieceClick($event, p, idx)"
           @contextmenu.prevent
-          :disabled="Boolean(allPlayers[playerID]?.status & (1<<2))"
+          :disabled="Boolean(myPlayer?.status & (1<<2))"
           />
       </v-col>
 
       <v-col cols="9" class="panel board-view bordered">
         <div class="hint-btn">
           <v-btn
-            :color="allPlayers[playerID]?.color || '#ffffff'"
+            :color="myPlayer?.color || '#ffffff'"
             @click.stop="getHint"
             :disabled="hints <= 0 || hintRequested"
           >
@@ -34,6 +33,7 @@
               :key="j"
               :owner="pid"
               :color="allPlayers[pid&0xffff]?.color"
+              :hint="hintCoords.some(([x,y]) => x === i && y === j) ? myPlayer?.color : null"
               @mouseover="hoverX = i; hoverY = j; calculateOverlap(i, j)"
               @mouseout="hoverX = null; hoverY = null; clearHighlight()"
             />
@@ -63,7 +63,7 @@
       v-if="selectedPiece"
       class="selected-piece"
       ref="selectedPieceRef"
-      :color="allPlayers[playerID]?.color || '#ffffff'"
+      :color="myPlayer?.color || '#ffffff'"
       :blocks="selectedPiece?.block.body || []"
       :square-size="squareSize"
       :style="{
@@ -129,6 +129,7 @@ const playerOrder = computed(() => {
 const playerID = ref(null);
 const whoseTurn = ref(null);
 const gameStatus = ref(0);
+const myPlayer = computed(() => allPlayers.value[playerID.value]);
 
 const selectedPiece = ref(null);
 const selectedPieceRef = ref(null);
@@ -468,10 +469,7 @@ function clearHighlight() {
 
 function clearHint() {
   hintRequested.value = false;
-  for (const [x,y] of hintCoords.value) {
-    const sq = boardHTML.value[x][y];
-    sq.classList.remove("hinted");
-  }
+  hintCoords.value = [];
 };
 
 function isMyTurn() {
@@ -491,11 +489,7 @@ function getHint() {
     .then((hint) => {
       hintRequested.value = true;
       hints.value -= 1;
-      hintCoords.value = [[hint.data.x, hint.data.y]];      
-      for (const [x,y] of hintCoords.value) {
-        const sq = boardHTML.value[x][y];
-        sq.classList.add("hinted");
-      }
+      hintCoords.value = [[hint.data.x, hint.data.y]];
     })
     .catch(() => {});
 };

@@ -2,10 +2,10 @@
   <v-card
     v-if="player.name"
     :title="player.name"
-    :class="['mx-auto', 'mb-5', {highlight: myTurn}]"
-    :color="`${player.color}50`"
+    :class="['mx-auto', 'mb-1', {highlight: myTurn}]"
+    :color="player.color"
     :disabled="!isActive"
-    :variant="myTurn ? 'elevated' : 'flat'"
+    :elevation="myTurn ? 8 : 0"
   >
     <template v-slot:prepend>
       <v-icon v-if="connected" size="x-small" color="green">mdi-checkbox-blank-circle</v-icon>
@@ -35,6 +35,6 @@ const isActive = computed(() => (props.player.status & (1<<2)) === 0);
 <style scoped>
 
 .highlight {
-  border: 5px solid #ffff00ff;
+  border-left: 20px solid #ffff00ff;
 }
 </style>

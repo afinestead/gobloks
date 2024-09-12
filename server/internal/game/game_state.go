@@ -424,16 +424,16 @@ func (g *Game) PlacePiece(pid types.PlayerID, placement types.Placement) error {
 
 	player.state.pieces.Remove(piece)
 
-	gameOver := g.updateGameState(player)
-	if !gameOver {
-		playerStates := make(map[types.PlayerID]*PlayerState, len(g.players))
-		for pid, player := range g.players {
-			if player != nil {
-				playerStates[pid] = player.state
-			}
-		}
-		g.evalEngine.Evaluate(&EvalState{g.state, playerStates})
-	}
+	g.updateGameState(player)
+	// if !gameOver {
+	// 	playerStates := make(map[types.PlayerID]*PlayerState, len(g.players))
+	// 	for pid, player := range g.players {
+	// 		if player != nil {
+	// 			playerStates[pid] = player.state
+	// 		}
+	// 	}
+	// 	g.evalEngine.Evaluate(&EvalState{g.state, playerStates})
+	// }
 
 	return nil
 }

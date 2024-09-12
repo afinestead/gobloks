@@ -32,7 +32,7 @@ function exitGame() {
 }
 
 .bkgnd {
-  background-color: #ffffff50;
+  background-color: #00000050;
 }
 
 #app:before {

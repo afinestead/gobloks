@@ -72,6 +72,85 @@
           />
         </v-col>
       </v-row> -->
+      <v-row>
+        <v-col cols="4" class="my-auto">
+          <v-label>Time Control</v-label>
+        </v-col>
+        <v-col cols="6">
+          <v-select
+            v-model="timeControl"
+            :items="[
+              {
+                title: '1 min',
+                value: '1b0',
+              },
+              {
+                title: '1 | 1',
+                value: '1b1',
+              },
+              {
+                title: '2 | 1',
+                value: '2b1',
+              },
+              {
+                title: '5 min',
+                value: '5b0',
+              },
+              {
+                title: '5 | 5',
+                value: '5b5',
+              },
+              {
+                title: '10 min',
+                value: '10b0',
+              },
+              {
+                title: '10 | 10',
+                value: '10b10',
+              },
+              {
+                title: '30 min',
+                value: '30b0',
+              },
+              {
+                title: '1 day',
+                value: '86400b0',
+              },
+              {
+                title: '3 days',
+                value: '259200b0',
+              },
+              {
+                title: '7 days',
+                value: '604800b0',
+              },
+            ]"
+            hide-details
+            dense
+            outlined
+            variant="solo-filled"
+          />
+        </v-col>
+      </v-row>
+      <v-row>
+        <v-col cols="4" class="my-auto">
+          <v-label>Hints</v-label>
+        </v-col>
+        <v-col>
+          <v-text-field
+            width="80"
+            v-model="hints"
+            :rules="[rules.required]"
+            type="number"
+            min="0"
+            step="1"
+            outlined
+            density="compact"
+            hide-details
+            variant="solo-filled"
+          />
+        </v-col>
+      </v-row>
     </v-card-text>
     <v-card-actions>
       <v-spacer></v-spacer>
@@ -101,21 +180,24 @@ const nPlayers = ref(4);
 const blockDeg = ref(5);
 const density = ref(0.85);
 const turns = ref(true)
-const timeControl = ref("left");
+const timeControl = ref("10b0");
+const hints = ref(3);
 
 const rules = ref({
   required: (v) => !!v || "Required",
 })
 
 function tryCreate() {
+  const [time, bonus] = timeControl.value.split('b');
+
   store.createGame({
     players: parseInt(nPlayers.value),
     degree: parseInt(blockDeg.value),
     density: density.value,
     turns: true,
-    timeSeconds: 0,
-    timeBonus: 0,
-    hints: 100,
+    timeSeconds: parseInt(time),
+    timeBonus: parseInt(bonus),
+    hints: parseInt(hints.value),
   }).then((gid) => {
     router.push({ path: '/join', query: { game: gid } });
   }).catch((e) => {

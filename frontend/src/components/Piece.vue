@@ -66,8 +66,8 @@ const pieceStyle = computed(() => ({
 }));
 
 const blockStyle = computed(() => ({
-  height: `${props.squareSize-1}px`,
-  width: `${props.squareSize-1}px`,
+  height: `${props.squareSize}px`,
+  width: `${props.squareSize}px`,
 }));
 
 defineExpose({
@@ -139,8 +139,9 @@ function rotatePiece(deg) {
 
 .block {
   position: absolute;
-  border: 1px solid black;
-  margin: 1px;
+  border-width: 1px;
+  border-radius: 10%;
+  border-style: solid;
   box-sizing: border-box;
 }
 

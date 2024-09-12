@@ -37,6 +37,12 @@
               hide-sliders
               show-swatches
               v-model="playerColor"
+              :swatches="[
+                ['#FF0000','#FF6600','#FFFF00','#00FF00','#00FFFF','#0000FF','#8B0EDE','#FE2E92',],
+                ['#FF6F6F','#FF8A00','#FFF385','#07B000','#5FBFBF','#7373F9','#B883DC','#C8749C',],
+                ['#FAB9B9','#FFCB66','#E0D27C','#76FF76','#33BFFF','#B6B6D4','#F977FF','#FF33D4',],
+                ['#881E1E','#FFB119','#D4FF3A','#103C19','#338FFF','#1B1B95','#9F00A6','#A2175A',],
+              ]"
             />
           </v-menu>
         </template>

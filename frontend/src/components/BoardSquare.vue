@@ -13,6 +13,7 @@ const props = defineProps({
   owner: Number,
   players: Object,
   color: String,
+  hint: String,
 });
 
 const isOccupied = computed(() => !(props.owner & (1<<29)));
@@ -23,21 +24,22 @@ const sqColor = computed(() => {
   const ownerColor = props.color || '#ffffff';
   if (isOccupied.value) {
     return `${ownerColor}ff`;
-  } else if (isOrigin.value) {
+  } else if (isOrigin.value) {    
     return `${ownerColor}50`;
+  } else if (props.hint) {
+    return `${props.hint}50`;
   } else {
     return '#ffffffff';
   }
 });
-
 </script>
 
 <style scoped>
 
 .board-square {
   border-width: 1px;
+  border-radius: 10%;
   border-style: solid;
-  margin: 1px;
   box-sizing: border-box;
   flex: 1;
   aspect-ratio: 1 / 1;
