@@ -1,12 +1,12 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
 import GameJoiner from '@/components/GameJoiner.vue';
-import GameMaker from '@/components/GameMaker.vue';
 import Blokus from '@/components/Blokus.vue';
+import Lobby from '@/components/Lobby.vue';
 
 const routes = [
     { path: '/', redirect: '/join' },
     { path: '/join', component: GameJoiner },
-    { path: '/create', component: GameMaker },
+    { path: '/lobby', component: Lobby },
     { path: '/play', component: Blokus },
 ];
 

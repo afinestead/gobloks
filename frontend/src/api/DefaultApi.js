@@ -45,6 +45,25 @@ export default class DefaultApi {
     );
   };
 
+  getGames(page) {
+    const postBody = {};
+    
+    const pathParams = {};  
+    const queryParams = {"page": page};
+    const headerParams = {};
+    const formParams = {};
+
+    const authNames = [];
+    const contentTypes = [];
+    const accepts = ['application/json'];
+    
+    return this.apiClient.callApi(
+      '/games', 'GET',
+      pathParams, queryParams, headerParams, formParams, postBody,
+      authNames, contentTypes, accepts, Object, null
+    );
+  };
+
   place(accessToken, placement) {
     const postBody = placement;
   

@@ -4,7 +4,7 @@ type Direction int
 type Axis int
 type Owner uint32
 type PlayerID uint16
-type GameID string
+type GameID uint64
 
 type Flags uint32
 type SocketDataType uint32
@@ -29,6 +29,7 @@ type GameConfig struct {
 	TimeControl uint    `json:"timeSeconds"`
 	TimeBonus   uint    `json:"timeBonus"`
 	Hints       uint    `json:"hints"`
+	Public      bool    `json:"public"`
 }
 
 type PlayerConfig struct {
@@ -53,4 +54,9 @@ type PrivateGameState struct {
 type PublicGameState struct {
 	Turn   PlayerID `json:"turn"`
 	Status Flags    `json:"status"`
+}
+
+type LobbyUpdate struct {
+	GID     GameID `json:"gid"`
+	Players uint   `json:"players"`
 }

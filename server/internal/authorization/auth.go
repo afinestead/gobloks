@@ -47,7 +47,7 @@ func AuthMiddleware(noAuth []gin.HandlerFunc) gin.HandlerFunc {
 
 		claims := token.Claims.(jwt.MapClaims)
 		c.Set("pid", types.PlayerID(claims["PlayerId"].(float64)))
-		c.Set("gid", types.GameID(claims["GameId"].(string)))
+		c.Set("gid", types.GameID(claims["GameId"].(float64)))
 		c.Next()
 	}
 }

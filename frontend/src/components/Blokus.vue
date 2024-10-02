@@ -313,10 +313,10 @@ onMounted(() => {
   };
   
   // open a websocket for game updates
-  const new_ws = store.connectSocket();
+  const new_ws = store.connectGameSocket();
   new_ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
-    // console.log(msg);
+    console.log(msg);
 
     switch (msg.type) {
 

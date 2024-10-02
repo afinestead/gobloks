@@ -3,11 +3,12 @@ package game
 import (
 	"errors"
 	"fmt"
+	"gobloks/internal/database"
 	"gobloks/internal/sockets"
 	"gobloks/internal/types"
 	"gobloks/internal/utilities"
+	"math"
 	"sync"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -36,22 +37,31 @@ func (gs *GameState) Copy() *GameState {
 }
 
 type Game struct {
-	gid            types.GameID
+	GID            types.GameID
+	db             *database.DatabaseManager
 	lock           *sync.Mutex
-	config         types.GameConfig
+	config         *types.GameConfig
 	startingPieces PieceSet
 	socketManager  *sockets.SocketManager
-	lastActive     time.Time
 	evalEngine     *EvalEngine
 	state          *GameState
 	players        map[types.PlayerID]*Player
+	joined         uint
 }
 
-func InitGame(gid types.GameID, config types.GameConfig) *Game {
+func InitGame(
+	config *types.GameConfig,
+	db *database.DatabaseManager,
+) (*Game, error) {
+
+	gid, err := db.AddGame(config)
+	if err != nil {
+		return nil, errors.New("failed to create game")
+	}
 
 	pieces, setPixels, err := GeneratePieceSet(config.BlockDegree) // TODO: cache
 	if err != nil {
-		return nil
+		return nil, errors.New("failed to generate piece set")
 	}
 
 	// playerStates := make(map[types.PlayerID]*PlayerState, config.Players)
@@ -73,7 +83,7 @@ func InitGame(gid types.GameID, config types.GameConfig) *Game {
 
 	board, err := NewBoard(pids, setPixels, config.Density)
 	if err != nil {
-		return nil
+		return nil, errors.New("failed to create board")
 	}
 
 	engine := InitEvalEngine(1)
@@ -86,12 +96,12 @@ func InitGame(gid types.GameID, config types.GameConfig) *Game {
 	}()
 
 	return &Game{
-		gid:            gid,
+		GID:            gid,
+		db:             db,
 		lock:           &sync.Mutex{},
 		config:         config,
 		startingPieces: pieces,
 		socketManager:  sockets.InitSocketManager(len(pids)),
-		lastActive:     time.Now(),
 		evalEngine:     engine,
 		state: &GameState{
 			board,
@@ -99,23 +109,16 @@ func InitGame(gid types.GameID, config types.GameConfig) *Game {
 			0,
 		},
 		players: players,
-	}
+	}, nil
 }
 
-func (g *Game) GetPlayers() map[types.PlayerID]*Player {
-	return g.players
+func (g *Game) PlayerCount() (uint, uint) {
+	return g.joined, g.config.Players
 }
 
-func (g *Game) IsStale() bool {
-	var cleanupAfter time.Duration
-	if g.config.TimeControl == 0 {
-		// Cleanup untimed games after a week of inactivity
-		cleanupAfter = 7 * 24 * time.Hour
-	} else {
-		cleanupAfter = time.Duration(5*g.config.Players*g.config.TimeControl*1000) * time.Millisecond
-	}
-	fmt.Println("Cleanup after", cleanupAfter, "currently", time.Since(g.lastActive))
-	return time.Since(g.lastActive) > cleanupAfter
+func (g *Game) updateStatus(status types.Flags) {
+	g.state.status.Set(status)
+	g.db.UpdateGameStatus(g.GID, status)
 }
 
 func (g *Game) nextTurn() {
@@ -171,7 +174,7 @@ func (g *Game) updateGameState(player *Player) bool {
 			g.endGame()
 			return true // game over
 		} else if g.config.TimeControl > 0 {
-			nextPlayer, _ := g.getPlayer(g.state.turn)
+			nextPlayer, _ := g.GetPlayer(g.state.turn)
 			nextPlayer.playerTimer.Start()
 		}
 	}
@@ -198,7 +201,7 @@ func (g *Game) endGame() {
 		winString += winners[0].name + " wins!"
 	}
 	g.sendGameMessage(winString)
-	g.state.status.Set(COMPLETE)
+	g.updateStatus(COMPLETE)
 	g.evalEngine.Stop()
 
 	// Stop all player timers
@@ -236,15 +239,17 @@ func (g *Game) receiveMessages(player *Player) {
 	g.sendPlayerList()
 	g.sendGameStatus()
 
-	player.connectionTimer = utilities.InitTimer(15000, 0, func(...any) {
-		g.lock.Lock()
-		defer g.lock.Unlock()
-		player.state.status.Set(DISABLED) // Remove player from active set
-		player.playerTimer.Pause()        // stop timer if applicable
-		g.updateGameState(player)
-		g.sendGameMessage(fmt.Sprintf("%s has left the game", player.name))
-	})
-	player.connectionTimer.Start()
+	if g.config.TimeControl < 1800 {
+		player.connectionTimer = utilities.InitTimer(15000, 0, func(...any) {
+			g.lock.Lock()
+			defer g.lock.Unlock()
+			player.state.status.Set(DISABLED) // Remove player from active set
+			player.playerTimer.Pause()        // stop timer if applicable
+			g.updateGameState(player)
+			g.sendGameMessage(fmt.Sprintf("%s has left the game", player.name))
+		})
+		player.connectionTimer.Start()
+	}
 }
 
 func (g *Game) sendGameMessage(msg string) {
@@ -284,26 +289,27 @@ func (g *Game) sendGameStatus() {
 	})
 }
 
-func (g *Game) getPlayer(pid types.PlayerID) (*Player, error) {
-	player, ok := g.players[pid]
-	if !ok {
+func (g *Game) GetPlayer(pid types.PlayerID) (*Player, error) {
+	player := g.players[pid]
+	if player == nil {
 		return nil, errors.New("invalid player id")
 	}
 	return player, nil
 }
 
-func (g *Game) AddPlayer(name string, color uint) (types.PlayerID, error) {
+func (g *Game) AddPlayer(name string, color uint) (types.PlayerID, uint, error) {
 	/* Assign the new player a PID, if there is one available */
 	g.lock.Lock()
 	defer g.lock.Unlock()
 
 	if g.state.status.Has(FULL) {
-		return 0, errors.New("game full")
+		return 0, 0, errors.New("game full")
 	}
 
 	var pid int
 	for pid = 1; pid <= len(g.players); pid++ {
 		if g.players[types.PlayerID(pid)] == nil {
+			g.joined++
 			g.players[types.PlayerID(pid)] = &Player{
 				name:  name,
 				color: color,
@@ -328,24 +334,17 @@ func (g *Game) AddPlayer(name string, color uint) (types.PlayerID, error) {
 	}
 
 	fmt.Println("Added player ", pid)
-	g.lastActive = time.Now()
-
-	if pid == len(g.players) {
+	if int(g.joined) == len(g.players) {
 		fmt.Println("Game is full")
-		g.state.status.Set(FULL)
+		g.updateStatus(FULL)
 	}
 
-	return types.PlayerID(pid), nil
+	return types.PlayerID(pid), g.joined, nil
 }
 
-func (g *Game) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) error {
+func (g *Game) ConnectSocket(socket *websocket.Conn, player *Player) error {
 	g.lock.Lock()
 	defer g.lock.Unlock()
-
-	player, err := g.getPlayer(pid)
-	if err != nil {
-		return err
-	}
 
 	if !player.state.status.Has(JOINED) {
 		return errors.New("invalid player status")
@@ -360,8 +359,6 @@ func (g *Game) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) error {
 	if player.connectionTimer != nil {
 		player.connectionTimer.Pause()
 	}
-
-	fmt.Println("Connected player ", pid)
 
 	var playerPieces []types.PublicPiece
 
@@ -380,7 +377,7 @@ func (g *Game) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) error {
 		player.socket,
 		&types.SocketData{
 			Type: sockets.PRIVATE_GAME_STATE,
-			Data: &types.PrivateGameState{PID: pid, Pieces: playerPieces, Hints: player.hints},
+			Data: &types.PrivateGameState{PID: player.state.pid, Pieces: playerPieces, Hints: player.hints},
 		},
 	)
 	g.socketManager.Send(player.socket, &types.SocketData{Type: sockets.BOARD_STATE, Data: g.state.board.GetRaw()})
@@ -393,7 +390,7 @@ func (g *Game) PlacePiece(pid types.PlayerID, placement types.Placement) error {
 	g.lock.Lock()
 	defer g.lock.Unlock()
 
-	player, err := g.getPlayer(pid)
+	player, err := g.GetPlayer(pid)
 	if err != nil {
 		return err
 	}
@@ -414,9 +411,7 @@ func (g *Game) PlacePiece(pid types.PlayerID, placement types.Placement) error {
 		return err
 	}
 
-	g.lastActive = time.Now()
-
-	g.state.status.Set(IN_PROGRESS)
+	g.updateStatus(IN_PROGRESS)
 
 	g.socketManager.Broadcast(&types.SocketData{Type: sockets.BOARD_STATE, Data: g.state.board.GetRaw()})
 
@@ -442,7 +437,7 @@ func (g *Game) GetHint(pid types.PlayerID) (types.Point, error) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
 
-	player, err := g.getPlayer(pid)
+	player, err := g.GetPlayer(pid)
 	if err != nil {
 		return types.Point{}, err
 	}
@@ -486,7 +481,7 @@ func (g *Game) playerActionValid(player *Player) (bool, error) {
 func (g *Game) determineWinners() []*Player {
 	winners := make([]*Player, 0, len(g.players))
 	scores := make(map[*Player]int, len(g.players))
-	minScore := 0xffffffff
+	minScore := math.MaxUint32
 
 	for _, player := range g.players {
 		if player != nil {
@@ -515,7 +510,7 @@ func (g *Game) handleTimeout(args ...any) {
 	defer g.lock.Unlock()
 
 	pid := args[0].(types.PlayerID)
-	player, _ := g.getPlayer(pid)
+	player, _ := g.GetPlayer(pid)
 	player.state.status.Set(TIMED_OUT | DISABLED)
 	if player.connectionTimer != nil {
 		player.connectionTimer.Pause()

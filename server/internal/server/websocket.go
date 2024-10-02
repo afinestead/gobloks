@@ -19,10 +19,16 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func handleWebsocket(c *gin.Context) {
+func handleGameWebsocket(c *gin.Context) {
 	g := c.MustGet("manager").(*manager.GameManager)
 	gid := c.MustGet("gid").(types.GameID)
 	gs, err := g.FindGame(gid)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": "access denied"})
+		return
+	}
+	pid := c.MustGet("pid").(types.PlayerID)
+	player, err := gs.GetPlayer(pid)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": "access denied"})
 		return
@@ -35,11 +41,20 @@ func handleWebsocket(c *gin.Context) {
 		return
 	}
 
-	fmt.Println("Connecting socket")
+	fmt.Println("Connecting socket PID", pid)
+	go gs.ConnectSocket(conn, player)
+}
 
-	pid := c.MustGet("pid").(types.PlayerID)
+func handleLobbyWebsocket(c *gin.Context) {
+	fmt.Println("Connecting lobby socket")
+	g := c.MustGet("manager").(*manager.GameManager)
 
-	fmt.Println("PID: ", pid)
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		conn.Close()
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-	go gs.ConnectSocket(conn, pid)
+	go g.ConnectLobby(conn)
 }

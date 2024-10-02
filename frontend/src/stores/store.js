@@ -25,6 +25,10 @@ export const useStore = defineStore("store", {
             this.token = r.response.headers['access-token'];
             sessionStorage.setItem("accessToken", this.token);
         },
+        async listGames(page) {
+            const games = await this.api.getGames(page);
+            return games.data;
+        },
         async placePiece(placement) {
             return this.api.place(this.token, placement);
         },
@@ -38,10 +42,16 @@ export const useStore = defineStore("store", {
             this.token = null;
             sessionStorage.removeItem("accessToken");
         },
-        connectSocket() {
+        connectGameSocket() {
             // NOTE: Smuggling access token to server via websocket protocol header
             //       https://stackoverflow.com/questions/4361173/http-headers-in-websockets-client-api
-            this.ws = new WebSocket(`ws://${this.apiLocation}/ws?access_token=${this.token}`);
+            this.disconnectSocket();
+            this.ws = new WebSocket(`ws://${this.apiLocation}/ws/play?access_token=${this.token}`);
+            return this.ws;
+        },
+        connectLobbySocket() {
+            this.disconnectSocket();
+            this.ws = new WebSocket(`ws://${this.apiLocation}/ws/lobby`);
             return this.ws;
         },
         disconnectSocket() {

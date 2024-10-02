@@ -1,5 +1,5 @@
 <template>
-  <v-card class="mx-auto my-5" width="344px">
+  <v-card class="mx-auto my-5">
     <v-card-text>
       <v-row>
         <v-col cols="4" class="my-auto">
@@ -73,7 +73,7 @@
         <v-col cols="4" class="my-auto">
           <v-label>Time Control</v-label>
         </v-col>
-        <v-col cols="5">
+        <v-col cols="4">
           <v-select
             v-model="timeControl"
             :items="[
@@ -152,7 +152,7 @@
         <v-col cols="4" class="my-auto">
           <v-label>Private</v-label>
         </v-col>
-        <v-col cols="5">
+        <v-col>
           <v-switch
             v-model="privateGame"
             class="align-center"

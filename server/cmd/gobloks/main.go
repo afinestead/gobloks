@@ -2,10 +2,7 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"gobloks/internal/manager"
 	"gobloks/internal/server"
-	"gobloks/internal/types"
 )
 
 func main() {
@@ -13,28 +10,28 @@ func main() {
 	flag.Parse()
 	server.Start(8888, *isProd)
 
-	globalGameManager := manager.InitGameManager()
+	// globalGameManager := manager.InitGameManager()
 
-	gid := globalGameManager.CreateGame(types.GameConfig{
-		Players:     1,
-		BlockDegree: 5,
-		Density:     1,
-		TurnBased:   true,
-		TimeControl: 0,
-		TimeBonus:   0,
-		Hints:       0,
-	})
-	gs, err := globalGameManager.FindGame(gid)
-	if err != nil {
-		fmt.Printf("error finding game: %s\n", err)
-		return
-	}
-	pid1, err := gs.AddPlayer("p1", 0xff00ff)
-	if err != nil {
-		fmt.Printf("error connecting player: %s\n", err)
-		return
-	}
-	fmt.Println(pid1)
+	// gid := globalGameManager.CreateGame(types.GameConfig{
+	// 	Players:     1,
+	// 	BlockDegree: 5,
+	// 	Density:     1,
+	// 	TurnBased:   true,
+	// 	TimeControl: 0,
+	// 	TimeBonus:   0,
+	// 	Hints:       0,
+	// })
+	// gs, err := globalGameManager.FindGame(gid)
+	// if err != nil {
+	// 	fmt.Printf("error finding game: %s\n", err)
+	// 	return
+	// }
+	// pid1, err := gs.AddPlayer("p1", 0xff00ff)
+	// if err != nil {
+	// 	fmt.Printf("error connecting player: %s\n", err)
+	// 	return
+	// }
+	// fmt.Println(pid1)
 	// pid2, err := gs.AddPlayer("p2", 0xffff00)
 	// if err != nil {
 	// 	fmt.Printf("error connecting player: %s\n", err)
