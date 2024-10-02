@@ -167,7 +167,7 @@ func (g *Game) updateGameState(player *Player) bool {
 
 	if g.state.turn == player.state.pid {
 		g.nextTurn() // advance turn if necessary
-		if g.state.turn == PID_NONE && g.config.TurnBased {
+		if g.state.turn == PID_NONE && (g.config.TurnBased || g.config.Players == 1) {
 			g.endGame()
 			return true // game over
 		} else if g.config.TimeControl > 0 {

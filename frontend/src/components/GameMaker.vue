@@ -1,11 +1,11 @@
 <template>
-  <v-card class="mx-auto my-5">
+  <v-card class="mx-auto my-5" width="344px">
     <v-card-text>
       <v-row>
         <v-col cols="4" class="my-auto">
           <v-label>Players</v-label>
         </v-col>
-        <v-col>
+        <v-col cols="5">
           <v-text-field
             width="80"
             v-model="nPlayers"
@@ -25,7 +25,7 @@
         <v-col cols="4" class="my-auto">
           <v-label>Block Degree</v-label>
         </v-col>
-        <v-col cols="4">
+        <v-col cols="5">
           <v-text-field
             width="80"
             v-model="blockDeg"
@@ -73,7 +73,7 @@
         <v-col cols="4" class="my-auto">
           <v-label>Time Control</v-label>
         </v-col>
-        <v-col cols="4">
+        <v-col cols="5">
           <v-select
             v-model="timeControl"
             :items="[
@@ -133,7 +133,7 @@
         <v-col cols="4" class="my-auto">
           <v-label>Hints</v-label>
         </v-col>
-        <v-col>
+        <v-col cols="5">
           <v-text-field
             width="80"
             v-model="hints"
@@ -152,7 +152,7 @@
         <v-col cols="4" class="my-auto">
           <v-label>Private</v-label>
         </v-col>
-        <v-col>
+        <v-col cols="5">
           <v-switch
             v-model="privateGame"
             class="align-center"
