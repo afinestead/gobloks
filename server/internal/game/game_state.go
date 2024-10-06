@@ -139,10 +139,10 @@ func (g *Game) nextTurn() {
 }
 
 func (g *Game) updateValidPlacements(player *Player, placement utilities.Set[types.Point]) {
-	for _, p := range g.players {
-		if p == nil {
-			continue
-		}
+	var wg sync.WaitGroup
+
+	updatePlayerPlacements := func(p *Player) {
+		defer wg.Done()
 		prev := p.possiblePlacements
 		for plc := p.possiblePlacements.Next; plc != nil; plc = plc.Next {
 			removed := false
@@ -158,6 +158,18 @@ func (g *Game) updateValidPlacements(player *Player, placement utilities.Set[typ
 			}
 		}
 	}
+
+	// TODO: use goroutines to speed this up
+	for _, p := range g.players {
+		if p == nil {
+			continue
+		}
+		wg.Add(1)
+		go updatePlayerPlacements(p)
+	}
+	// NOTE: could technically continue, we only need to wait for the player who just placed
+	//       this wouldn't be too much of an optimization though
+	wg.Wait()
 
 	asPiece := PieceFromPoints(placement)
 	prev := player.possiblePlacements
