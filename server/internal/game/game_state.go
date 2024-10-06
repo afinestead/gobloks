@@ -127,7 +127,7 @@ func (g *Game) nextTurn() {
 	wg := sync.WaitGroup{}
 
 	for pid, player := range g.players {
-		if !player.state.status.Has(DISABLED) {
+		if player != nil && !player.state.status.Has(DISABLED) {
 			wg.Add(1)
 			go g.state.board.GetPossiblePlacement(pid, player.state.pieces, chResult)
 		}
@@ -150,7 +150,7 @@ func (g *Game) nextTurn() {
 	var nextUp types.PlayerID = PID_NONE
 	for i := 0; i < len(g.players); i++ {
 		maybeNext := types.PlayerID((int(g.state.turn)+i)%len(g.players)) + 1
-		if !g.players[maybeNext].state.status.Has(DISABLED) {
+		if g.players[maybeNext] != nil && !g.players[maybeNext].state.status.Has(DISABLED) {
 			nextUp = maybeNext
 			fmt.Println("Next up:", nextUp)
 			fmt.Println("Possible placement:", g.players[maybeNext].possiblePlacement)
@@ -203,11 +203,13 @@ func (g *Game) endGame() {
 
 	// Stop all player timers
 	for _, player := range g.players {
-		if player.connectionTimer != nil {
-			player.connectionTimer.Pause()
-		}
-		if g.config.TimeControl > 0 {
-			player.playerTimer.Pause()
+		if player != nil {
+			if player.connectionTimer != nil {
+				player.connectionTimer.Pause()
+			}
+			if g.config.TimeControl > 0 {
+				player.playerTimer.Pause()
+			}
 		}
 	}
 }
