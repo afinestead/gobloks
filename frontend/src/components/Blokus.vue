@@ -333,6 +333,12 @@ onMounted(() => {
         nextTick(() => onResize());
         break;
       
+      case MessageType.BoardUpdate:
+        for (const plc of msg.data.placement) {
+          board.value[plc.x][plc.y] = msg.data.owner;
+        }
+        break;
+      
       case MessageType.PrivateGameState:
         playerID.value = msg.data.pid; 
         myPieces.value = msg.data.pieces.sort((p1,p2) => p1.hash - p2.hash);

@@ -4,6 +4,7 @@ const MessageType = Object.freeze({
   PrivateGameState: 2,
   ChatMesssage: 3,
   GameStatus: 4,
+  BoardUpdate: 5,
 });
 
 export default MessageType;

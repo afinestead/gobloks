@@ -16,6 +16,7 @@ const (
 	PRIVATE_GAME_STATE
 	CHAT_MESSAGE
 	GAME_STATUS
+	BOARD_UPDATE
 )
 
 type Connection struct {

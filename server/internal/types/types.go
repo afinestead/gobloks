@@ -54,3 +54,8 @@ type PublicGameState struct {
 	Turn   PlayerID `json:"turn"`
 	Status Flags    `json:"status"`
 }
+
+type BoardUpdate struct {
+	Owner     `json:"owner"`
+	Placement `json:"placement"`
+}

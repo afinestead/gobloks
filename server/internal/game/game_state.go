@@ -420,7 +420,13 @@ func (g *Game) PlacePiece(pid types.PlayerID, placement types.Placement) error {
 
 	g.state.status.Set(IN_PROGRESS)
 
-	g.socketManager.Broadcast(&types.SocketData{Type: sockets.BOARD_STATE, Data: g.state.board.GetRaw()})
+	g.socketManager.Broadcast(&types.SocketData{
+		Type: sockets.BOARD_UPDATE,
+		Data: &types.BoardUpdate{
+			Owner:     types.Owner(pid),
+			Placement: placement,
+		},
+	})
 
 	player.playerTimer.Pause() // successfully placed piece, pause timer
 
