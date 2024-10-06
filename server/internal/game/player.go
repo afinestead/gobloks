@@ -19,14 +19,14 @@ const (
 const PID_NONE types.PlayerID = 0
 
 type Player struct {
-	name              string
-	color             uint
-	state             *PlayerState
-	socket            *sockets.Connection
-	playerTimer       *utilities.Timer
-	connectionTimer   *utilities.Timer
-	possiblePlacement types.Placement
-	hints             uint
+	name               string
+	color              uint
+	state              *PlayerState
+	socket             *sockets.Connection
+	playerTimer        *utilities.Timer
+	connectionTimer    *utilities.Timer
+	possiblePlacements utilities.LinkedList[utilities.Set[types.Point]]
+	hints              uint
 }
 
 type PlayerState struct {
