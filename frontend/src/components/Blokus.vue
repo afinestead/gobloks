@@ -17,7 +17,7 @@
       </v-col>
 
       <v-col cols="9" class="panel board-view bordered">
-        <div class="hint-btn">
+        <div class="hint-btns">
           <v-btn
             :color="myPlayer?.color || '#ffffff'"
             @click.stop="getHint"
@@ -25,8 +25,16 @@
           >
             Hint
           </v-btn>
+          <v-btn
+            color="primary"
+            icon="mdi-magnify"
+            rounded="lg"
+            size="small"
+            @click.stop="panzoom.reset()"
+          >
+          </v-btn>
         </div>
-        <div class="board fill-height mx-auto" ref="boardRef">
+        <div id="gameBoard" class="board fill-height mx-auto" ref="boardRef">
           <div v-for="row, i in board" :key="i" class="board-row">
             <board-square
               v-for="pid, j in row"
@@ -98,7 +106,7 @@ import Timer from './Timer.vue'
 import { useRouter } from 'vue-router';
 import { useStore } from '@/stores/store';
 import { MessageType } from '@/api';
-
+import Panzoom from '@panzoom/panzoom'
 
 const store = useStore();
 const router = useRouter()
@@ -109,6 +117,7 @@ const boardSize = ref(0);
 const boardRef = ref(null)
 const myPieces = ref([]);
 const pieceDeck = ref(null);
+const panzoom = ref(null);
 
 const allPlayers = ref([]);
 const playerOrder = computed(() => {
@@ -146,6 +155,8 @@ const cursorX = ref(null);
 const offsetX = ref(null);
 const cursorY = ref(null);
 const offsetY = ref(null);
+
+const zoom = ref(1);
 
 const ws = ref(null);
 
@@ -311,6 +322,12 @@ onMounted(() => {
     }
     return true;
   };
+
+  const el = document.getElementById("gameBoard")
+
+  panzoom.value = Panzoom(el, {maxScale: 4});
+  el.onwheel = (event) => zoomBoard(event, el);
+  
   
   // open a websocket for game updates
   const new_ws = store.connectSocket();
@@ -376,6 +393,24 @@ onMounted(() => {
   
   ws.value = new_ws;
 });
+
+function zoomBoard(event, elem) {
+  if (event.ctrlKey) {
+
+    event.preventDefault();
+    zoom.value += event.deltaY * -0.001;
+
+    // Restrict scale
+    zoom.value = Math.min(Math.max(1, zoom.value), 4);
+    panzoom.value.zoom(zoom.value);
+    onResize();
+  }
+  
+  // squareSize.value += event.deltaY > 0 ? -1 : 1;
+
+  // elem.style.scale = 
+
+}
 
 function snapPieceToCursor() {
   // Find left most block
@@ -553,10 +588,13 @@ watch(selectedPiece, (newPiece) => {
   display: flex;
 }
 
-.hint-btn {
+.hint-btns {
   padding: 0 1em;
   position: absolute;
-  right: 0;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
 }
 
 .highlighted {

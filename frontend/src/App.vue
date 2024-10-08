@@ -23,6 +23,10 @@ function exitGame() {
   router.push({ path: "/join" });
 }
 
+document.getElementById('app').onwheel = (e) => {
+  if (e.ctrlKey) e.preventDefault();
+}
+
 </script>
 
 <style>
