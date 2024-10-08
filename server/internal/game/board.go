@@ -207,10 +207,10 @@ func (b *Board) HasCorner(pt types.Point, owner types.Owner) bool {
 }
 
 func (b *Board) Place(points utilities.Set[types.Point], player types.PlayerID) (bool, error) {
-	valid := b.validPlacement(points, types.Owner(player))
-	if !valid {
-		return false, errors.New("invalid placement")
-	}
+	// valid := b.validPlacement(points, types.Owner(player)) // technically already checked validity...
+	// if !valid {
+	// 	return false, errors.New("invalid placement")
+	// }
 	for pt := range points {
 		err := b.occupy(pt, types.Owner(player))
 		if err != nil {
@@ -223,43 +223,35 @@ func (b *Board) Place(points utilities.Set[types.Point], player types.PlayerID) 
 	return true, nil
 }
 
-func (b *Board) GetPossiblePlacement(player types.PlayerID, pieces PieceSet, chResult chan struct {
-	types.PlayerID
-	*types.Placement
-}) {
-	territory := b.findTerritory(types.Owner(player))
-	corners := b.findCorners(territory, types.Owner(player))
-	placeList := b.getPlacements(corners, types.Owner(player), pieces, true)
-
-	var placement *types.Placement = nil
-	if placeList != nil {
-		placement = &placeList.Value
-	}
-	chResult <- struct {
-		types.PlayerID
-		*types.Placement
-	}{player, placement}
+func (b *Board) getOrigin(player types.PlayerID) types.Point {
+	return b.origins[player]
 }
 
-func (b *Board) getPlacements(corners []types.Point, owner types.Owner, pieces PieceSet, first bool) utilities.LinkedList[types.Placement] {
-	res := &utilities.Node[types.Placement]{}
+func (b *Board) getPlacementsAtPoint(
+	pt types.Point,
+	owner types.Owner,
+	pieces PieceSet,
+) utilities.LinkedList[utilities.Set[types.Point]] {
+
+	res := &utilities.Node[utilities.Set[types.Point]]{}
 	head := res
 
 	var wg sync.WaitGroup
-	var firstClose sync.Once
-	chDone := make(chan struct{})
 	chFound := make(chan utilities.Set[types.Point])
 
-	findPiecePlacement := func(pt types.Point, piece Piece) {
-		attemptedPieces := utilities.NewSet([]Piece{}, 8)
+	findPiecePlacements := func(piece Piece) {
+		defer wg.Done()
+		attemptedPermutations := utilities.NewSet([]Piece{}, 8)
+
 		for j := 0; j < 2; j++ {
 			piece = piece.Reflect(types.X)
+
 			for i := 0; i < 4; i++ {
 				piece = piece.Rotate90()
-				if attemptedPieces.Has(piece) {
+				if attemptedPermutations.Has(piece) {
 					continue // Already tried this one
 				}
-				attemptedPieces.Add(piece)
+				attemptedPermutations.Add(piece)
 
 				// Check all possible placements
 				// TODO: Optimize?
@@ -270,45 +262,16 @@ func (b *Board) getPlacements(corners []types.Point, owner types.Owner, pieces P
 						absPoints.Add(pp.Translate(pt.X-origin.X, pt.Y-origin.Y))
 					}
 					if b.validPlacement(absPoints, owner) {
-						select {
-						case <-chDone:
-							return
-						default:
-							chFound <- absPoints
-							if first {
-								firstClose.Do(func() { close(chDone) })
-							}
-						}
+						chFound <- absPoints
 					}
 				}
 			}
 		}
 	}
 
-	playerOrigin := b.origins[types.PlayerID(owner)]
-
-	originPlacementFinder := func(piece Piece) {
-		defer wg.Done()
-		findPiecePlacement(playerOrigin, piece)
-	}
-
-	cornerPlacementFinder := func(piece Piece) {
-		defer wg.Done()
-		for _, pt := range corners {
-			findPiecePlacement(pt, piece)
-		}
-	}
-
-	var placementFinder func(piece Piece)
-	if b.occupiedByPlayer(playerOrigin, owner) {
-		placementFinder = cornerPlacementFinder
-	} else {
-		placementFinder = originPlacementFinder
-	}
-
+	wg.Add(pieces.Size())
 	for piece := range pieces {
-		wg.Add(1)
-		go placementFinder(piece)
+		go findPiecePlacements(piece)
 	}
 
 	var resultGroup sync.WaitGroup
@@ -316,7 +279,7 @@ func (b *Board) getPlacements(corners []types.Point, owner types.Owner, pieces P
 	go func() {
 		defer resultGroup.Done()
 		for found := range chFound {
-			head.Next = &utilities.Node[types.Placement]{Value: found.ToSlice()}
+			head.Next = &utilities.Node[utilities.Set[types.Point]]{Value: found}
 			head = head.Next
 		}
 	}()
@@ -325,7 +288,7 @@ func (b *Board) getPlacements(corners []types.Point, owner types.Owner, pieces P
 	close(chFound)
 	resultGroup.Wait()
 
-	return res.Next
+	return res
 }
 
 func (b *Board) findTerritory(o types.Owner) []types.Point {

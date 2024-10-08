@@ -14,8 +14,6 @@ type SocketData struct {
 	Data interface{}    `json:"data"`
 }
 
-type Placement []Point
-
 type PublicPiece struct {
 	Hash uint64  `json:"hash"`
 	Body []Point `json:"body"`

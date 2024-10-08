@@ -9,6 +9,8 @@ type Point struct {
 	Y int `json:"y"`
 }
 
+type Placement []Point
+
 func (p Point) GetAdjacent(dir Direction) Point {
 	if dir == UP {
 		return Point{p.X, p.Y + 1}
@@ -41,4 +43,8 @@ func (pt Point) Reflect(ax Axis) Point {
 	} else {
 		return Point{-pt.X, pt.Y}
 	}
+}
+
+func (pt Point) Is(other Point) bool {
+	return pt.X == other.X && pt.Y == other.Y
 }

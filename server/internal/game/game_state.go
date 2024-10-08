@@ -119,33 +119,11 @@ func (g *Game) IsStale() bool {
 }
 
 func (g *Game) nextTurn() {
-	chResult := make(chan struct {
-		types.PlayerID
-		*types.Placement
-	})
-
-	wg := sync.WaitGroup{}
-
-	for pid, player := range g.players {
-		if player != nil && !player.state.status.Has(DISABLED) {
-			wg.Add(1)
-			go g.state.board.GetPossiblePlacement(pid, player.state.pieces, chResult)
+	for _, player := range g.players {
+		if player != nil && !player.state.status.Has(DISABLED) && player.possiblePlacements.Next == nil {
+			player.state.status.Set(DISABLED)
 		}
 	}
-
-	go func() {
-		for plc := range chResult {
-			wg.Done()
-			if plc.Placement != nil {
-				g.players[plc.PlayerID].possiblePlacement = *plc.Placement
-			} else {
-				g.players[plc.PlayerID].state.status.Set(DISABLED) // No playable pieces, disable player
-			}
-		}
-	}()
-
-	wg.Wait()
-	close(chResult)
 
 	var nextUp types.PlayerID = PID_NONE
 	for i := 0; i < len(g.players); i++ {
@@ -153,12 +131,86 @@ func (g *Game) nextTurn() {
 		if g.players[maybeNext] != nil && !g.players[maybeNext].state.status.Has(DISABLED) {
 			nextUp = maybeNext
 			fmt.Println("Next up:", nextUp)
-			fmt.Println("Possible placement:", g.players[maybeNext].possiblePlacement)
 			break
 		}
 	}
 
 	g.state.turn = nextUp
+}
+
+func (g *Game) updateValidPlacements(player *Player, placement utilities.Set[types.Point]) {
+	var wg sync.WaitGroup
+
+	updatePlayerPlacements := func(p *Player) {
+		defer wg.Done()
+		prev := p.possiblePlacements
+		for plc := p.possiblePlacements.Next; plc != nil; plc = plc.Next {
+			removed := false
+			for pt := range placement {
+				if plc.Value.Has(pt) {
+					prev.Next = plc.Next // remove this from the list- placement is no longer valid
+					removed = true
+					break
+				}
+			}
+			if !removed {
+				prev = plc // else prev stays the same
+			}
+		}
+	}
+
+	// TODO: use goroutines to speed this up
+	for _, p := range g.players {
+		if p == nil {
+			continue
+		}
+		wg.Add(1)
+		go updatePlayerPlacements(p)
+	}
+	// NOTE: could technically continue, we only need to wait for the player who just placed
+	//       this wouldn't be too much of an optimization though
+	wg.Wait()
+
+	asPiece := PieceFromPoints(placement)
+	prev := player.possiblePlacements
+	for plc := player.possiblePlacements.Next; plc != nil; plc = plc.Next {
+
+		if PieceFromPoints(plc.Value).IsSame(asPiece) {
+			prev.Next = plc.Next // remove this from the list- placement is no longer valid
+			continue
+		}
+		removed := false
+		for pt := range placement {
+			if plc.Value.Has(pt) ||
+				plc.Value.Has(pt.GetAdjacent(types.UP)) ||
+				plc.Value.Has(pt.GetAdjacent(types.DOWN)) ||
+				plc.Value.Has(pt.GetAdjacent(types.RIGHT)) ||
+				plc.Value.Has(pt.GetAdjacent(types.LEFT)) {
+				prev.Next = plc.Next // remove this from the list- placement is no longer valid
+				removed = true
+				break
+			}
+		}
+		if !removed {
+			prev = plc
+		}
+	}
+
+	newCorners := g.state.board.findCorners(
+		placement.ToSlice(),
+		types.Owner(player.state.pid),
+	)
+
+	last := prev
+	for _, pt := range newCorners {
+		last.Next = g.state.board.getPlacementsAtPoint(
+			pt,
+			types.Owner(player.state.pid),
+			player.state.pieces.Copy(),
+		).Next
+		for ; last.Next != nil; last = last.Next {
+		}
+	}
 }
 
 func (g *Game) updateGameState(player *Player) bool {
@@ -303,14 +355,15 @@ func (g *Game) AddPlayer(name string, color uint) (types.PlayerID, error) {
 		return 0, errors.New("game full")
 	}
 
-	var pid int
-	for pid = 1; pid <= len(g.players); pid++ {
-		if g.players[types.PlayerID(pid)] == nil {
-			g.players[types.PlayerID(pid)] = &Player{
+	var ii int
+	for ii = 1; ii <= len(g.players); ii++ {
+		pid := types.PlayerID(ii)
+		if g.players[pid] == nil {
+			g.players[pid] = &Player{
 				name:  name,
 				color: color,
 				state: &PlayerState{
-					pid:    types.PlayerID(pid),
+					pid:    pid,
 					status: JOINED,
 					pieces: g.startingPieces.Copy(),
 				},
@@ -319,25 +372,29 @@ func (g *Game) AddPlayer(name string, color uint) (types.PlayerID, error) {
 					g.config.TimeControl*1000,
 					g.config.TimeBonus*1000,
 					g.handleTimeout,
-					types.PlayerID(pid),
+					pid,
 				),
-				connectionTimer:   nil,
-				possiblePlacement: types.Placement{},
-				hints:             g.config.Hints,
+				connectionTimer: nil,
+				possiblePlacements: g.state.board.getPlacementsAtPoint(
+					g.state.board.getOrigin(pid),
+					types.Owner(pid),
+					g.startingPieces.Copy(),
+				),
+				hints: g.config.Hints,
 			}
 			break
 		}
 	}
 
-	fmt.Println("Added player ", pid)
+	fmt.Println("Added player ", ii)
 	g.lastActive = time.Now()
 
-	if pid == len(g.players) {
+	if ii == len(g.players) {
 		fmt.Println("Game is full")
 		g.state.status.Set(FULL)
 	}
 
-	return types.PlayerID(pid), nil
+	return types.PlayerID(ii), nil
 }
 
 func (g *Game) ConnectSocket(socket *websocket.Conn, pid types.PlayerID) error {
@@ -405,13 +462,25 @@ func (g *Game) PlacePiece(pid types.PlayerID, placement types.Placement) error {
 		return err
 	}
 
-	ptSet := utilities.NewSet(placement)
-	piece := PieceFromPoints(ptSet)
-	if !player.state.pieces.Has(piece) {
-		return errors.New("player does not have this piece")
+	// ptSet := utilities.NewSet(placement)
+	// piece := PieceFromPoints(ptSet)
+	// if !player.state.pieces.Has(piece) {
+	// 	return errors.New("player does not have this piece")
+	// }
+
+	internalPlace := utilities.NewSet(placement)
+	hasPlacement := false
+	for p := player.possiblePlacements.Next; p != nil; p = p.Next {
+		if p.Value.Is(internalPlace) {
+			hasPlacement = true
+			break
+		}
+	}
+	if !hasPlacement {
+		return errors.New("invalid placement")
 	}
 
-	_, err = g.state.board.Place(ptSet, pid)
+	_, err = g.state.board.Place(internalPlace, pid)
 	if err != nil {
 		return err
 	}
@@ -430,7 +499,9 @@ func (g *Game) PlacePiece(pid types.PlayerID, placement types.Placement) error {
 
 	player.playerTimer.Pause() // successfully placed piece, pause timer
 
-	player.state.pieces.Remove(piece)
+	player.state.pieces.Remove(PieceFromPoints(internalPlace))
+
+	g.updateValidPlacements(player, internalPlace)
 
 	g.updateGameState(player)
 	// if !gameOver {
@@ -466,12 +537,14 @@ func (g *Game) GetHint(pid types.PlayerID) (types.Point, error) {
 
 	player.hints -= 1
 
-	for _, pt := range player.possiblePlacement {
-		if g.state.board.HasCorner(pt, types.Owner(pid)) {
-			return pt, nil
+	// TODO: don't return the same hint twice in a row
+	if player.possiblePlacements.Next != nil {
+		for pt := range player.possiblePlacements.Next.Value {
+			if g.state.board.HasCorner(pt, types.Owner(pid)) {
+				return pt, nil
+			}
 		}
 	}
-
 	return types.Point{}, errors.New("no corners")
 }
 

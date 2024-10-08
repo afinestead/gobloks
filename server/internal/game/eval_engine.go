@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"gobloks/internal/types"
 )
 
@@ -75,24 +74,25 @@ func (engine *EvalEngine) evaluateGameState(state *EvalState, curDepth int, curR
 }
 
 func (engine *EvalEngine) evaluatePlayerPosition(state *EvalState, pid types.PlayerID, curDepth int) float64 {
-	territory := state.game.board.findTerritory(types.Owner(pid))
-	corners := state.game.board.findCorners(territory, types.Owner(pid))
-	placements := state.game.board.getPlacements(corners, types.Owner(pid), state.players[pid].pieces, false)
+	eval := 0.0
+	// territory := state.game.board.findTerritory(types.Owner(pid))
+	// corners := state.game.board.findCorners(territory, types.Owner(pid))
+	// placements := state.game.board.getPlacements(corners, types.Owner(pid), state.players[pid].pieces, false)
 
-	numPlacements := 0
-	playableArea := 0
-	for p := placements; p != nil; p = p.Next {
-		playableArea += len(p.Value)
-		numPlacements++
-	}
+	// numPlacements := 0
+	// playableArea := 0
+	// for p := placements; p != nil; p = p.Next {
+	// 	playableArea += len(p.Value)
+	// 	numPlacements++
+	// }
 
-	fmt.Println("evaluating PID", pid)
-	fmt.Println(len(territory), len(corners), numPlacements, playableArea)
+	// fmt.Println("evaluating PID", pid)
+	// fmt.Println(len(territory), len(corners), numPlacements, playableArea)
 
-	eval := (float64(len(territory))*WEIGHT_TERRITORY +
-		float64(len(corners))*WEIGHT_CORNERS +
-		float64(numPlacements)*WEIGHT_PLACEMENTS +
-		float64(playableArea)*WEIGHT_OPEN_SPACE)
+	// eval := (float64(len(territory))*WEIGHT_TERRITORY +
+	// 	float64(len(corners))*WEIGHT_CORNERS +
+	// 	float64(numPlacements)*WEIGHT_PLACEMENTS +
+	// 	float64(playableArea)*WEIGHT_OPEN_SPACE)
 
 	// for p := placements; p != nil; p = p.Next {
 	// 	gsCopy := state.game.Copy()
