@@ -22,15 +22,17 @@
             :color="myPlayer?.color || '#ffffff'"
             @click.stop="getHint"
             :disabled="hints <= 0 || hintRequested"
+            title="Get hint"
           >
             Hint
           </v-btn>
           <v-btn
             color="primary"
-            icon="mdi-magnify"
+            icon="mdi-replay"
             rounded="lg"
             size="small"
             @click.stop="panzoom.reset()"
+            title="Reset view"
           >
           </v-btn>
         </div>
