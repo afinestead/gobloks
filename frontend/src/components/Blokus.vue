@@ -19,6 +19,7 @@
       <v-col cols="9" class="panel board-view bordered">
         <div class="hint-btns">
           <v-btn
+            class="mb-2"
             :color="myPlayer?.color || '#ffffff'"
             @click.stop="getHint"
             :disabled="hints <= 0 || hintRequested"
@@ -27,7 +28,8 @@
             Hint
           </v-btn>
           <v-btn
-            color="primary"
+            class="mb-2"
+            :color="myPlayer?.color || '#ffffff'"
             icon="mdi-replay"
             rounded="lg"
             size="small"
